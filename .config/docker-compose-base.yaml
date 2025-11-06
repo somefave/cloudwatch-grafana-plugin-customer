@@ -1,0 +1,33 @@
+services:
+  grafana:
+    user: root
+    container_name: 'ucloud-datasource-grafana'
+
+    build:
+      context: .
+      args:
+        grafana_image: ${GRAFANA_IMAGE:-grafana-enterprise}
+        grafana_version: ${GRAFANA_VERSION:-12.2.0}
+        development: ${DEVELOPMENT:-false}
+        anonymous_auth_enabled: ${ANONYMOUS_AUTH_ENABLED:-true}
+    ports:
+      - 3000:3000/tcp
+    # 让容器可以访问内网 API（添加 DNS 解析）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "internal-api-test03.service.ucloud.cn:10.72.129.7"
+    # 使用主机的 DNS 服务器
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      - ../dist:/var/lib/grafana/plugins/ucloud-cloudwatch-datasource
+      - ../provisioning:/etc/grafana/provisioning
+      - ..:/root/ucloud-cloudwatch-datasource
+
+    environment:
+      NODE_ENV: development
+      GF_LOG_FILTERS: plugin.ucloud-cloudwatch-datasource:debug
+      GF_LOG_LEVEL: debug
+      GF_DATAPROXY_LOGGING: 1
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ucloud-cloudwatch-datasource
