@@ -10,7 +10,6 @@ import { QueryCustom } from './QueryCustom';
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
-  console.log('query:', query);
   const { queryType = 'normal' } = query;
 
   const onKeyChange = (key: string, value: any) => {
@@ -32,7 +31,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           ]}
         />
       </InlineField>
-      {queryType === 'normal' ? <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} /> : <QueryCustom onKeyChange={onKeyChange} values={query} />}
+      {queryType === 'normal' ? <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} /> : <QueryCustom onKeyChange={onKeyChange} values={query} datasource={datasource} />}
     </Stack>
   );
 }

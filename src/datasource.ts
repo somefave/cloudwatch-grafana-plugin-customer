@@ -5,7 +5,7 @@ import {
   DataQueryResponse,
   DataSourceApi,
   DataSourceInstanceSettings,
-  createDataFrame,
+  // createDataFrame,
   FieldType,
 } from '@grafana/data';
 
@@ -117,55 +117,108 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     //   });
     // });
 
-    let Selectors: any = [];
+    // let Selectors: any = [];
 
-    options.targets.forEach((target) => {
-      const { ResourceIds } = target;
-      let ResourceIdsArray = ResourceIds.split(',').map((id: string) => id.trim()).filter((id: string) => id);
-      ResourceIdsArray.forEach((id: string) => {
-        Selectors.push({
+    // options.targets.forEach((target) => {
+    //   const { ResourceIds } = target;
+    //   let ResourceIdsArray = ResourceIds.split(',').map((id: string) => id.trim()).filter((id: string) => id);
+    //   ResourceIdsArray.forEach((id: string) => {
+    //     Selectors.push({
+    //       ResourceId: id,
+    //       Metric: target.MetricKey?.value,
+    //     });
+    //   });
+    // });
+
+    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, RegionInput, queryType } = options.targets[0];
+
+    let queryParams: any = {};
+
+    if (queryType == 'normal') {
+      queryParams = {
+        ProductKey: ProductKey?.value,
+        Region: Region?.value,
+        CalcMethod: CalcMethod?.value,
+        StartTime: Math.floor(from / 1000),
+        EndTime: Math.floor(to / 1000),
+        Selectors: ResourceIds?.split(',')?.map((id: string) => ({
           ResourceId: id,
-          Metric: target.MetricKey?.value,
-        });
-      });
-    });
+          Metric: MetricKey?.value,
+        })),
+      }
+    }
 
-    let queryParams: any = {
-      ProductKey: options.targets[0].ProductKey?.value,
-      Region: options.targets[0].Region?.value,
-      CalcMethod: options.targets[0].CalcMethod?.value,
-      StartTime: Math.floor(from / 1000),
-      EndTime: Math.floor(to / 1000),
-      Selectors: Selectors,
+    if (queryType == 'custom') {
+      
+      let selectors: any[] = [];
+
+      MetricInput?.split(',').forEach((metric: string) => {
+        ResourceIds.split(',').forEach((id: string) => {
+          selectors.push({
+            ResourceId: id,
+            Metric: metric,
+          })
+        })
+      })
+
+      queryParams = {
+        ProductKey: ProductKey?.value,
+        Region: RegionInput,
+        CalcMethod: CalcMethod?.value,
+        StartTime: Math.floor(from / 1000),
+        EndTime: Math.floor(to / 1000),
+        Selectors: selectors,
+      }
     }
 
     console.log('queryParams:', queryParams);
 
     // const data = await Promise.all([]);
     const data = await this.request('QueryMonitorData', queryParams);
-    // @ts-ignore
-    const formattedData = data.data.Data.List[0].Results[0].Values;
-    const timeValues = formattedData.map((item: any) => item.Timestamp * 1000);
-    const valueValues = formattedData.map((item: any) => item.Value);
-    const testData = [
-      {
-        name: 'uhost_cpu_used',
-        fields: [
-          { 
-            name: 'Time',           // 时间字段
-            values: timeValues,  // 时间戳（毫秒）
-            type: FieldType.time 
-          },
-          { 
-            name: 'Value',          // 数值字段
-            values: valueValues,  // 对应的数值
-            type: FieldType.number 
-          },
-        ]
-      }
-    ];
-    console.log('testData:', testData);
-    return { data: testData };
+
+    // 处理数据，将数据转换为 Grafana 需要的格式
+    const { List } = (data.data as any)?.Data || [];
+    
+    let formattedData: any[] = [];
+
+    List.forEach((item: any) => {
+      const { Metric, Results } = item;
+
+      Results.forEach((result: any) => {
+        const { ResourceId, Values, TagMap } = result;
+        let tagInfos = '';
+        Object.keys(TagMap).map((key, index) => {
+          const isFirst = index === 0;
+          const spacing = isFirst ? '' : '\xa0\xa0';
+          if (key !== 'uuid' && key !== 'skym_namespace') {
+            // @ts-ignore
+            tagInfos += spacing + `${key}:${TagMap[key]}`;
+          }
+        });
+
+        const basicName = Metric + '-' + ResourceId;
+        const actualName = tagInfos ? basicName + '-' + tagInfos : basicName;
+
+        const actualData = {
+          name: actualName,
+          fields: [
+            {
+              name: 'Time',
+              values: Values.map((value: any) => value.Timestamp * 1000),
+              type: FieldType.time,
+            },
+            {
+              name: 'Value',
+              values: Values.map((value: any) => value.Value),
+              type: FieldType.number,
+            },
+          ],
+        }
+        formattedData.push(actualData);
+      });
+    })
+
+    return { data: formattedData };
   }
 
   async request(action: string, data?: any) {

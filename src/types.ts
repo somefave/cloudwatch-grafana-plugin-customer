@@ -11,6 +11,8 @@ export interface MyQuery extends DataQuery {
   Tags: string;
   CalcMethod: { label: string, value: string };
   Region: { label: string, value: string };
+  RegionInput: string;
+  MetricInput: string;
 }
 
 export const DEFAULT_QUERY: Partial<MyQuery> = {
@@ -21,6 +23,8 @@ export const DEFAULT_QUERY: Partial<MyQuery> = {
   ResourceIds: '',
   Tags: '',
   Region: { label: '', value: '' },
+  RegionInput: '',
+  MetricInput: '',
 };
 
 export interface DataPoint {
