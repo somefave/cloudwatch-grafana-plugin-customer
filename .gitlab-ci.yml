@@ -1,6 +1,6 @@
 stages:
- -build
- -release
+  - build
+  - release
 
 # 缓存 node_modules
 cache:
@@ -33,8 +33,7 @@ release:
     - cd ..
   # 创建 checksum
     - sha256sum ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip > ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip.sha256
-
-artifacts:
-  paths:
+  artifacts:
+    paths:
       - ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip
       - ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip.sha256
