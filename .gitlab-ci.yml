@@ -10,8 +10,9 @@ cache:
 # 构建阶段
 build:
   stage: build
+  image: node:18
   script:
-    - npm install
+    - npm ci
     - npm run build
   artifacts:
     paths:
@@ -23,7 +24,7 @@ build:
 # 发布阶段
 release:
   stage: release
-  image: node:18-alpine
+  image: node:18
   before_script:
     - apt-get update && apt-get install -y zip
   script:
