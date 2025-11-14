@@ -1,0 +1,40 @@
+stages:
+ -build
+ -release
+
+# 缓存 node_modules
+cache:
+  paths:
+    - node_modules/
+
+# 构建阶段
+build:
+  stage: build
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  only:
+    - main
+
+# 发布阶段
+release:
+  stage: release
+  image: node:18-alpine
+  before_script:
+    - apt-get update && apt-get install -y zip
+  script:
+  # 创建插件压缩包
+    - cd dist
+    - zip -r ../ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip .
+    - cd ..
+  # 创建 checksum
+    - sha256sum ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip > ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip.sha256
+
+artifacts:
+  paths:
+      - ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip
+      - ucloud-cloudwatch-datasource-${CI_COMMIT_TAG}.zip.sha256
