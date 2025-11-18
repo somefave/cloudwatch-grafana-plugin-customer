@@ -173,6 +173,10 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
     console.log('queryParams:', queryParams);
 
+    if (!queryParams.ProductKey) {
+      return { data: [] };
+    }
+
     // const data = await Promise.all([]);
     const data = await this.request('QueryMonitorData', queryParams);
 
@@ -181,7 +185,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     
     let formattedData: any[] = [];
 
-    List.forEach((item: any) => {
+    List?.forEach((item: any) => {
       const { Metric, Results } = item;
 
       Results.forEach((result: any) => {

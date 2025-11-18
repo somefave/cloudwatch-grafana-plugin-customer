@@ -4,8 +4,8 @@ import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
 
-import { QueryNormal } from './QueryNormal';
-import { QueryCustom } from './QueryCustom';
+// import { QueryNormal } from './QueryNormal';
+// import { QueryCustom } from './QueryCustom';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
@@ -31,7 +31,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           ]}
         />
       </InlineField>
-      {queryType === 'normal' ? <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} /> : <QueryCustom onKeyChange={onKeyChange} values={query} datasource={datasource} />}
+      {/* <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} />  */}
+      {/* {queryType === 'normal' ? <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} /> : <QueryCustom onKeyChange={onKeyChange} values={query} datasource={datasource} />} */}
     </Stack>
   );
 }
