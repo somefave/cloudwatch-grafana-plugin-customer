@@ -43,117 +43,38 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     const from = range!.from.valueOf();
     const to = range!.to.valueOf();
 
-    // 并行处理所有查询目标
-    // const promises = options.targets.map(async (target) => {
-    //   // 如果查询类型是普通查询
-    //   if (target.queryType === 'normal') {
-    //     try {
-    //       // 准备查询参数
-    //       const queryParams: any = {
-    //         ProductKey: target.ProductKey?.value,
-    //         Metric: target.MetricKey?.value,
-    //         Region: target.Region?.value,
-    //         BeginTime: Math.floor(from / 1000), // 转换为秒
-    //         EndTime: Math.floor(to / 1000), // 转换为秒
-    //       };
-
-    //       // 如果有聚合方式
-    //       if (target.CalcMethod?.value) {
-    //         queryParams.CalcMethod = target.CalcMethod.value;
-    //       }
-
-    //       // 如果有资源ID
-    //       if (target.ResourceIds) {
-    //         // 将逗号分隔的字符串转换为数组
-    //         queryParams.ResourceIds = target.ResourceIds.split(',').map((id: string) => id.trim()).filter((id: string) => id);
-    //       }
-
-    //       // 如果有标签
-    //       if (target.Tags) {
-    //         // 将逗号分隔的字符串转换为数组
-    //         queryParams.Tags = target.Tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag);
-    //       }
-
-    //       // 调用查询接口
-    //       const response = await this.request('QueryMonitorData', queryParams);
-    //       const dataPoints = (response.data as any)?.Data || [];
-
-    //       // 将数据转换为 Grafana 需要的格式
-    //       const times: number[] = [];
-    //       const values: number[] = [];
-
-    //       dataPoints.forEach((point: any) => {
-    //         times.push(point.Time * 1000); // 转换为毫秒
-    //         values.push(point.Value);
-    //       });
-
-    //       return createDataFrame({
-    //         refId: target.refId,
-    //         fields: [
-    //           { name: 'Time', values: times, type: FieldType.time },
-    //           { name: 'Value', values: values, type: FieldType.number },
-    //         ],
-    //       });
-    //     } catch (error) {
-    //       console.error('Query error:', error);
-    //       // 如果查询失败，返回空数据
-    //       return createDataFrame({
-    //         refId: target.refId,
-    //         fields: [
-    //           { name: 'Time', values: [], type: FieldType.time },
-    //           { name: 'Value', values: [], type: FieldType.number },
-    //         ],
-    //       });
-    //     }
-    //   }
-
-    //   // 如果是自定义查询或其他类型，返回模拟数据
-    //   return createDataFrame({
-    //     refId: target.refId,
-    //     fields: [
-    //       { name: 'Time', values: [from, to], type: FieldType.time },
-    //       { name: 'Value', values: [6.5, 6.5], type: FieldType.number },
-    //     ],
-    //   });
-    // });
-
-    // let Selectors: any = [];
-
-    // options.targets.forEach((target) => {
-    //   const { ResourceIds } = target;
-    //   let ResourceIdsArray = ResourceIds.split(',').map((id: string) => id.trim()).filter((id: string) => id);
-    //   ResourceIdsArray.forEach((id: string) => {
-    //     Selectors.push({
-    //       ResourceId: id,
-    //       Metric: target.MetricKey?.value,
-    //     });
-    //   });
-    // });
-
-    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, RegionInput, queryType } = options.targets[0];
+    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, RegionInput, queryType, Tags } = options.targets[0];
 
     let queryParams: any = {};
+    let tagsRequest: any = {};
 
-    if (queryType == 'normal') {
+    let tags = Tags && JSON.parse(Tags);
+    if (tags && tags.length > 0) {
+      tagsRequest = tags;
+    }
+
+    console.log('tagsRequest:', tagsRequest);
+
+
+    if (queryType === 'normal') {
       queryParams = {
-        ProductKey: ProductKey?.value,
-        Region: Region?.value,
-        CalcMethod: CalcMethod?.value,
+        ProductKey: ProductKey,
+        Region: Region,
+        CalcMethod: CalcMethod,
         StartTime: Math.floor(from / 1000),
         EndTime: Math.floor(to / 1000),
         Selectors: ResourceIds?.split(',')?.map((id: string) => ({
           ResourceId: id,
-          Metric: MetricKey?.value,
+          Metric: MetricKey,
         })),
       }
     }
 
-    if (queryType == 'custom') {
-      
+    if (queryType === 'custom') {
       let selectors: any[] = [];
 
       MetricInput?.split(',').forEach((metric: string) => {
-        ResourceIds.split(',').forEach((id: string) => {
+        ResourceIds?.split(',').forEach((id: string) => {
           selectors.push({
             ResourceId: id,
             Metric: metric,
@@ -162,9 +83,9 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       })
 
       queryParams = {
-        ProductKey: ProductKey?.value,
+        ProductKey: ProductKey,
         Region: RegionInput,
-        CalcMethod: CalcMethod?.value,
+        CalcMethod: CalcMethod,
         StartTime: Math.floor(from / 1000),
         EndTime: Math.floor(to / 1000),
         Selectors: selectors,
@@ -182,7 +103,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
     // 处理数据，将数据转换为 Grafana 需要的格式
     const { List } = (data.data as any)?.Data || [];
-    
+
     let formattedData: any[] = [];
 
     List?.forEach((item: any) => {
@@ -229,7 +150,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     // 构建完整的请求 URL
     // this.url 是 Grafana 的代理路径，例如: /api/datasources/proxy/uid/xxx
     // Grafana 会根据 plugin.json 中的 routes 配置，将请求转发到 baseUrl
-    
+
     // 使用传入的 action，如果没有则使用默认的 action
     const actionUrl = `${this.url}?Action=${action}`;
 

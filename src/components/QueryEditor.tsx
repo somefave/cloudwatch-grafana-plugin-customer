@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { InlineField, Stack, RadioButtonGroup } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery } from '../types';
 
-// import { QueryNormal } from './QueryNormal';
-// import { QueryCustom } from './QueryCustom';
+import { QueryNormal } from './QueryNormal';
+import { QueryCustom } from './QueryCustom';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
-  const { queryType = 'normal' } = query;
+  const { queryType } = query;
 
   const onKeyChange = (key: string, value: any) => {
     onChange({
@@ -18,6 +18,12 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       [key]: value,
     });
   }
+
+  useEffect(() => {
+    if (!queryType) {
+      onKeyChange('queryType', 'normal');
+    }
+  }, [])
 
   return (
     <Stack gap={1} direction="column">
@@ -31,8 +37,21 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           ]}
         />
       </InlineField>
-      {/* <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} />  */}
-      {/* {queryType === 'normal' ? <QueryNormal onKeyChange={onKeyChange} values={query} datasource={datasource} /> : <QueryCustom onKeyChange={onKeyChange} values={query} datasource={datasource} />} */}
+      {queryType === 'normal' ? (
+        // 普通查询
+        <QueryNormal
+          onKeyChange={onKeyChange}
+          values={query}
+          datasource={datasource}
+        />
+      ) : (
+        // 自定义查询
+        <QueryCustom
+          onKeyChange={onKeyChange}
+          values={query}
+          datasource={datasource}
+        />
+      )}
     </Stack>
   );
 }

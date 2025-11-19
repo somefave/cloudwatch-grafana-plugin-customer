@@ -3,26 +3,26 @@ import { DataQuery } from '@grafana/schema';
 
 export interface MyQuery extends DataQuery {
   queryText?: string;
-  requestParam1: string;
-  queryType: 'normal' | 'custom';
-  ProductKey: { label: string, value: string };
-  MetricKey: { label: string, value: string };
-  ResourceIds: string;
-  Tags: string;
-  CalcMethod: { label: string, value: string };
-  Region: { label: string, value: string };
-  RegionInput: string;
-  MetricInput: string;
+  requestParam1?: string;
+  queryType?: 'normal' | 'custom';
+  ProductKey?: string;
+  MetricKey?: string;
+  ResourceIds?: string;
+  Tags?: string;
+  CalcMethod?: string;
+  Region?: string;
+  RegionInput?: string;
+  MetricInput?: string;
 }
 
 export const DEFAULT_QUERY: Partial<MyQuery> = {
   queryType: 'normal',
-  ProductKey: { label: '',value: '' },
-  MetricKey: { label: '', value: '' },
-  CalcMethod: { label: '', value: '' },
+  ProductKey: '',
+  MetricKey: '',
+  CalcMethod: '',
   ResourceIds: '',
   Tags: '',
-  Region: { label: '', value: '' },
+  Region: '',
   RegionInput: '',
   MetricInput: '',
 };

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { InlineField, Combobox, Stack, TextArea } from '@grafana/ui';
+import { InlineField, Stack, TextArea, Select } from '@grafana/ui';
 import { MyQuery } from '../types';
 import { DataSource } from '../datasource';
+import { CalcMethodOptions, DefaultTagsTemplate } from '../config/enums';
 
 interface Props {
     onKeyChange: (key: string, value: any) => void;
@@ -9,16 +10,16 @@ interface Props {
     datasource: DataSource;
 }
 
-const calcMethodOptions = [
-    { label: '原始值', value: 'raw' },
-    { label: '平均值', value: 'avg' },
-    { label: '最大值', value: 'max' },
-    { label: '最小值', value: 'min' },
-    { label: '求和值', value: 'sum' },
-];
 
 export function QueryNormal({ onKeyChange, values, datasource }: Props) {
-    const { ProductKey, MetricKey, ResourceIds, Tags, CalcMethod, Region } = values;
+    const {
+        ProductKey,
+        MetricKey,
+        ResourceIds,
+        Tags,
+        CalcMethod,
+        Region
+    } = values;
 
     const [productOptions, setProductOptions] = useState<any[]>([]);
     const [metricOptions, setMetricOptions] = useState<any[]>([]);
@@ -39,8 +40,8 @@ export function QueryNormal({ onKeyChange, values, datasource }: Props) {
     }, [datasource]);
 
     useEffect(() => {
-        if (ProductKey && ProductKey?.value) {
-            datasource.getProductMetrics(ProductKey.value).then((res) => {
+        if (ProductKey) {
+            datasource.getProductMetrics(ProductKey).then((res) => {
                 if (res && res.length > 0) {
                     let result = res.map((item: any) => {
                         return {
@@ -66,46 +67,50 @@ export function QueryNormal({ onKeyChange, values, datasource }: Props) {
                 setRegionOptions(result);
             }
         });
-    },[datasource])
+    }, [datasource])
 
 
     return (
         <Stack gap={1} direction="column">
             <InlineField label="产品" labelWidth={12}>
-                <Combobox
+                <Select
+                    width={40}
                     value={ProductKey}
-                    onChange={(value) => onKeyChange('ProductKey', value)}
+                    onChange={(e) => onKeyChange('ProductKey', e.value)}
                     options={productOptions}
                     placeholder='请选择产品'
                 />
             </InlineField>
             <InlineField label="地域" labelWidth={12}>
-                <Combobox
+                <Select
+                    width={40}
                     value={Region}
-                    onChange={(value) => onKeyChange('Region', value)}
+                    onChange={(e) => onKeyChange('Region', e.value)}
                     options={regionOptions}
                     placeholder='请选择地域'
                 />
             </InlineField>
             <InlineField label="指标" labelWidth={12}>
-                <Combobox
+                <Select
+                    width={40}
                     value={MetricKey}
-                    onChange={(value) => onKeyChange('MetricKey', value)}
+                    onChange={(e) => onKeyChange('MetricKey', e.value)}
                     options={metricOptions}
                     placeholder='请选择指标'
                 />
             </InlineField>
             <InlineField label="聚合方式" labelWidth={12}>
-                <Combobox
+                <Select
+                    width={40}
                     value={CalcMethod}
-                    onChange={(value) => onKeyChange('CalcMethod', value)}
-                    options={calcMethodOptions}
+                    onChange={(e) => onKeyChange('CalcMethod', e.value)}
+                    options={CalcMethodOptions}
                     placeholder='请选择聚合方式'
                 />
             </InlineField>
             <InlineField label="资源" labelWidth={12}>
                 <TextArea
-                    value={ResourceIds}
+                    value={ResourceIds || ''}
                     onChange={(e: any) => onKeyChange('ResourceIds', e.target.value)}
                     placeholder='请输入短资源ID, 多个ID用逗号分隔'
                     style={{ width: 600, height: 200 }}
@@ -113,9 +118,9 @@ export function QueryNormal({ onKeyChange, values, datasource }: Props) {
             </InlineField>
             <InlineField label="标签" labelWidth={12}>
                 <TextArea
-                    value={Tags}
+                    value={Tags || ''}
                     onChange={(e: any) => onKeyChange('Tags', e.target.value)}
-                    placeholder='请输入标签, 多个标签用逗号分隔'
+                    placeholder={`请输入规范的json数组格式,参考格式-->  ${DefaultTagsTemplate}`}
                     style={{ width: 600, height: 200 }}
                 />
             </InlineField>

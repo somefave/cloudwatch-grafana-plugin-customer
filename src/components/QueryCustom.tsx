@@ -1,20 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Combobox, InlineField, Stack, TextArea } from '@grafana/ui';
+import { Select, InlineField, Stack, TextArea } from '@grafana/ui';
 import { MyQuery } from '../types';
 import { DataSource } from '../datasource';
-
-const calcMethodOptions = [
-    { label: '原始值', value: 'raw' },
-    { label: '平均值', value: 'avg' },
-    { label: '最大值', value: 'max' },
-    { label: '最小值', value: 'min' },
-    { label: '求和值', value: 'sum' },
-];
+import { CalcMethodOptions, DefaultTagsTemplate } from '../config/enums';
 interface Props {
     onKeyChange: (key: string, value: any) => void;
     values: MyQuery;
     datasource: DataSource;
-  }
+}
 
 export function QueryCustom({ onKeyChange, values, datasource }: Props) {
     const { ProductKey, RegionInput, MetricInput, ResourceIds, Tags, CalcMethod } = values;
@@ -34,22 +27,22 @@ export function QueryCustom({ onKeyChange, values, datasource }: Props) {
             }
         });
     }, [datasource]);
-    
+
     return (
         <Stack gap={1} direction="column">
             <InlineField label="产品" labelWidth={12}>
-                <Combobox
+                <Select
                     value={ProductKey}
-                    onChange={(value) => onKeyChange('ProductKey', value)}
+                    onChange={(e) => onKeyChange('ProductKey', e.value)}
                     options={productOptions}
                     placeholder='请选择产品'
                 />
             </InlineField>
             <InlineField label="聚合方式" labelWidth={12}>
-                <Combobox
+                <Select
                     value={CalcMethod}
-                    onChange={(value) => onKeyChange('CalcMethod', value)}
-                    options={calcMethodOptions}
+                    onChange={(e) => onKeyChange('CalcMethod', e.value)}
+                    options={CalcMethodOptions}
                     placeholder='请选择聚合方式'
                 />
             </InlineField>
@@ -81,7 +74,7 @@ export function QueryCustom({ onKeyChange, values, datasource }: Props) {
                 <TextArea
                     value={Tags}
                     onChange={(e: any) => onKeyChange('Tags', e.target.value)}
-                    placeholder='请输入标签, 多个标签用逗号分隔'
+                    placeholder={`请输入规范的json数组格式,参考格式-->  ${DefaultTagsTemplate}`}
                     style={{ width: 600, height: 200 }}
                 />
             </InlineField>
