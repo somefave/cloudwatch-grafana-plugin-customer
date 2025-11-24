@@ -34,6 +34,8 @@ export interface DataPoint {
 
 export interface DataSourceResponse {
   datapoints: DataPoint[];
+  RetCode: number;
+  Message: string;
 }
 
 /**

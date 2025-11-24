@@ -7,4 +7,3 @@ export const CalcMethodOptions = [
 ];
 
 export const DefaultTagsTemplate = '{"key1":["value1","value2"],"key2":["value1","value2"]}';
-

@@ -1,4 +1,4 @@
-import { getBackendSrv, isFetchError } from '@grafana/runtime';
+import { getBackendSrv, isFetchError, getTemplateSrv } from '@grafana/runtime';
 import {
   CoreApp,
   DataQueryRequest,
@@ -43,7 +43,12 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     const from = range!.from.valueOf();
     const to = range!.to.valueOf();
 
-    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, RegionInput, queryType, Tags } = options.targets[0];
+    const templateSrv = getTemplateSrv();
+
+    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, queryType, Tags } = options.targets[0];
+
+    // 替换 Region 变量，支持 $region 或 ${region} 语法
+    const replacedRegion = Region ? templateSrv.replace(Region) : Region;
 
     let queryParams: any = {};
     let tagsRequest: any = {};
@@ -53,13 +58,11 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       tagsRequest = tags;
     }
 
-    console.log('tagsRequest:', tagsRequest);
-
-
+    // 普通查询
     if (queryType === 'normal') {
       queryParams = {
         ProductKey: ProductKey,
-        Region: Region,
+        Region: replacedRegion,
         CalcMethod: CalcMethod,
         StartTime: Math.floor(from / 1000),
         EndTime: Math.floor(to / 1000),
@@ -67,9 +70,11 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
           ResourceId: id,
           Metric: MetricKey,
         })),
+        Tags: tagsRequest || null,
       }
     }
 
+    // 自定义查询
     if (queryType === 'custom') {
       let selectors: any[] = [];
 
@@ -84,22 +89,24 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
       queryParams = {
         ProductKey: ProductKey,
-        Region: RegionInput,
+        Region: replacedRegion,
         CalcMethod: CalcMethod,
         StartTime: Math.floor(from / 1000),
         EndTime: Math.floor(to / 1000),
         Selectors: selectors,
+        Tags: tagsRequest || null,
       }
     }
-
-    console.log('queryParams:', queryParams);
 
     if (!queryParams.ProductKey) {
       return { data: [] };
     }
 
-    // const data = await Promise.all([]);
     const data = await this.request('QueryMonitorData', queryParams);
+
+    if (data.data?.RetCode !== 0) {
+      throw new Error(data.data?.Message || '查询失败');
+    }
 
     // 处理数据，将数据转换为 Grafana 需要的格式
     const { List } = (data.data as any)?.Data || [];

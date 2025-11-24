@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function QueryCustom({ onKeyChange, values, datasource }: Props) {
-    const { ProductKey, RegionInput, MetricInput, ResourceIds, Tags, CalcMethod } = values;
+    const { ProductKey, Region, MetricInput, ResourceIds, Tags, CalcMethod } = values;
 
     const [productOptions, setProductOptions] = useState<any[]>([]);
 
@@ -48,8 +48,8 @@ export function QueryCustom({ onKeyChange, values, datasource }: Props) {
             </InlineField>
             <InlineField label="地域" labelWidth={12}>
                 <TextArea
-                    value={RegionInput}
-                    onChange={(e: any) => onKeyChange('RegionInput', e.target.value)}
+                    value={Region}
+                    onChange={(e: any) => onKeyChange('Region', e.target.value)}
                     placeholder='请输入单个地域'
                     style={{ width: 200, height: 50 }}
                 />
