@@ -54,9 +54,12 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     let tagsRequest: any = {};
 
     let tags = Tags && JSON.parse(Tags);
-    if (tags && tags.length > 0) {
+    if (tags && Object.keys(tags).length > 0) {
       tagsRequest = tags;
     }
+
+    let ResourceIdList = ResourceIds?.split(',') || [];
+    let noResourceId = !Boolean(ResourceIds?.trim());
 
     // 普通查询
     if (queryType === 'normal') {
@@ -66,7 +69,9 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
         CalcMethod: CalcMethod,
         StartTime: Math.floor(from / 1000),
         EndTime: Math.floor(to / 1000),
-        Selectors: ResourceIds?.split(',')?.map((id: string) => ({
+        Selectors: noResourceId 
+        ? [{ ResourceId: '', Metric: MetricKey, Tags: tagsRequest || null }] 
+        : ResourceIdList?.map((id: string) => ({
           ResourceId: id,
           Metric: MetricKey,
         })),
@@ -79,12 +84,20 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       let selectors: any[] = [];
 
       MetricInput?.split(',').forEach((metric: string) => {
-        ResourceIds?.split(',').forEach((id: string) => {
+        if (noResourceId) {
           selectors.push({
-            ResourceId: id,
+            ResourceId: '',
             Metric: metric,
+            Tags: tagsRequest || null,
           })
-        })
+        } else {
+          ResourceIdList?.forEach((id: string) => {
+            selectors.push({
+              ResourceId: id,
+              Metric: metric,
+            })
+          })
+        }
       })
 
       queryParams = {
