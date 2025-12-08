@@ -8,6 +8,8 @@ Grafana 的 UCloud CloudWatch 数据源插件安装和配置指南。
 
 ### 1. 安装插件
 
+确定grafana的安装路径/path/to/grafana
+
 执行以下命令安装插件：
 
 ```bash
@@ -21,7 +23,7 @@ grafana-cli --pluginsDir /path/to/grafana/data/plugins \
 #### 2.1 进入配置目录
 
 ```bash
-cd /data/self-monitor/grafana/conf
+cd /path/to/grafana
 ```
 
 配置文件名称：`defaults.ini`
@@ -62,10 +64,10 @@ systemctl restart grafana
 
 ```bash
 # 检查 paths 配置
-cat /data/self-monitor/grafana/conf/defaults.ini | grep -A 3 "\[paths\]"
+cat /path/to/grafana/defaults.ini | grep -A 3 "\[paths\]"
 
 # 检查 plugins 配置
-cat /data/self-monitor/grafana/conf/defaults.ini | grep -A 3 "\[plugins\]"
+cat /path/to/grafana/defaults.ini | grep -A 3 "\[plugins\]"
 ```
 
 **预期输出：**
