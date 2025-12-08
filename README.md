@@ -11,7 +11,9 @@ Grafana 的 UCloud CloudWatch 数据源插件安装和配置指南。
 执行以下命令安装插件：
 
 ```bash
-grafana-cli --pluginUrl https://git.ucloudadmin.com/console/cloudwatch-grafana-plugin/-/archive/main/ucloud-cloudwatch-datasource.zip\?path\=dist plugins install ucloud-cloudwatch-datasource
+grafana-cli --pluginsDir /path/to/grafana/data/plugins \
+  --pluginUrl https://git.ucloudadmin.com/console/cloudwatch-grafana-plugin/-/archive/main/ucloud-cloudwatch-datasource.zip\?path\=dist \
+  plugins install ucloud-cloudwatch-datasource
 ```
 
 ### 2. 配置 Grafana
@@ -30,7 +32,7 @@ cd /data/self-monitor/grafana/conf
 
 ```ini
 [paths]
-plugins = /data/self-monitor/grafana/data/plugins
+plugins = data/plugins
 ```
 
 #### 2.3 修改 `[plugins]` 配置
@@ -40,7 +42,6 @@ plugins = /data/self-monitor/grafana/data/plugins
 ```ini
 [plugins]
 allow_loading_unsigned_plugins = ucloud-cloudwatch-datasource
-plugin_admin_enabled = true
 ```
 
 #### 2.4 保存配置
@@ -71,12 +72,20 @@ cat /data/self-monitor/grafana/conf/defaults.ini | grep -A 3 "\[plugins\]"
 
 ```ini
 [paths]
-plugins = /data/self-monitor/grafana/data/plugins
+plugins = data/plugins
 
 [plugins]
 allow_loading_unsigned_plugins = ucloud-cloudwatch-datasource
-plugin_admin_enabled = true
 ```
+
+## 在grafana页面增加插件
+- 1.在plugins里搜索ucloud，然后点击进去，右上角增加datasource
+- 2.输入baseUrl和APIKey
+
+![插件安装示意图](readmeImg/img1.png)
+![插件安装示意图](readmeImg/img2.png)
+
+
 
 ---
 
