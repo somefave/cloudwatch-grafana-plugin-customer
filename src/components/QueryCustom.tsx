@@ -70,7 +70,7 @@ export function QueryCustom({ onKeyChange, values, datasource }: Props) {
                     style={{ width: 600, height: 200 }}
                 />
             </InlineField>
-            <InlineField label="标签" labelWidth={12}>
+            <InlineField label="标签" labelWidth={12} tooltip={`请输入规范的json数组格式,参考格式-->  ${DefaultTagsTemplate}`}>
                 <TextArea
                     value={Tags}
                     onChange={(e: any) => onKeyChange('Tags', e.target.value)}

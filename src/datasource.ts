@@ -47,22 +47,30 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
     const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, queryType, Tags } = options.targets[0];
 
+    // 以下自定义变量，只用在自定义查询中
     // 替换 Region 变量，支持 $region 或 ${region} 语法
     const replacedRegion = Region ? templateSrv.replace(Region) : Region;
+    const replacedResourceIds = ResourceIds ? templateSrv.replace(ResourceIds) : ResourceIds;
+    const replacedMetricInput = MetricInput ? templateSrv.replace(MetricInput) : MetricInput;
+    const replacedTags = Tags ? templateSrv.replace(Tags) : Tags;
+
+    console.log('replacedRegion', replacedRegion);
+    console.log('replacedResourceIds', replacedResourceIds);
+    console.log('replacedMetricInput', replacedMetricInput);
+    console.log('replacedTags', replacedTags);
 
     let queryParams: any = {};
     let tagsRequest: any = {};
-
-    let tags = Tags && JSON.parse(Tags);
-    if (tags && Object.keys(tags).length > 0) {
-      tagsRequest = tags;
-    }
 
     let ResourceIdList = ResourceIds?.split(',') || [];
     let noResourceId = !Boolean(ResourceIds?.trim());
 
     // 普通查询
     if (queryType === 'normal') {
+      let tags = Tags && JSON.parse(Tags);
+      if (tags && Object.keys(tags).length > 0) {
+        tagsRequest = tags;
+      }
       queryParams = {
         ProductKey: ProductKey,
         Region: replacedRegion,
@@ -81,9 +89,13 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
     // 自定义查询
     if (queryType === 'custom') {
+      let tags = replacedTags && JSON.parse(replacedTags);
+      if (tags && Object.keys(tags).length > 0) {
+        tagsRequest = tags;
+      }
       let selectors: any[] = [];
 
-      MetricInput?.split(',').forEach((metric: string) => {
+      replacedMetricInput?.split(',').forEach((metric: string) => {
         if (noResourceId) {
           selectors.push({
             ResourceId: '',
@@ -91,7 +103,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
             Tags: tagsRequest || null,
           })
         } else {
-          ResourceIdList?.forEach((id: string) => {
+          replacedResourceIds?.split(',').forEach((id: string) => {
             selectors.push({
               ResourceId: id,
               Metric: metric,
