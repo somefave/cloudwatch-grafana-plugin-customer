@@ -1,4 +1,3 @@
-import { getBackendSrv, isFetchError, getTemplateSrv } from '@grafana/runtime';
 import {
   CoreApp,
   DataQueryRequest,
@@ -8,9 +7,11 @@ import {
   // createDataFrame,
   FieldType,
 } from '@grafana/data';
+import { getBackendSrv, getTemplateSrv, isFetchError } from '@grafana/runtime';
 
-import { MyQuery, MyDataSourceOptions, DEFAULT_QUERY, DataSourceResponse } from './types';
 import { lastValueFrom } from 'rxjs';
+import { BACKEND } from './config';
+import { DEFAULT_QUERY, DataSourceResponse, MyDataSourceOptions, MyQuery } from './types';
 
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   baseUrl: string;
@@ -45,89 +46,167 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
 
     const templateSrv = getTemplateSrv();
 
-    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, queryType, Tags } = options.targets[0];
+    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, queryType, Tags, Namespace, namespaceType, Cluster, ResourceUuid } = options.targets[0];
 
     // 以下自定义变量，只用在自定义查询中
     // 替换 Region 变量，支持 $region 或 ${region} 语法
     const replacedRegion = Region ? templateSrv.replace(Region) : Region;
+    const replacedCluster = Cluster ? templateSrv.replace(Cluster) : Cluster;
     const replacedResourceIds = ResourceIds ? templateSrv.replace(ResourceIds) : ResourceIds;
     const replacedMetricInput = MetricInput ? templateSrv.replace(MetricInput) : MetricInput;
     const replacedTags = Tags ? templateSrv.replace(Tags) : Tags;
+    const replacedResourceUuid = ResourceUuid ? templateSrv.replace(ResourceUuid) : ResourceUuid;
 
-    console.log('replacedRegion', replacedRegion);
-    console.log('replacedResourceIds', replacedResourceIds);
-    console.log('replacedMetricInput', replacedMetricInput);
-    console.log('replacedTags', replacedTags);
 
-    let queryParams: any = {};
-    let tagsRequest: any = {};
-
-    let ResourceIdList = ResourceIds?.split(',') || [];
-    let noResourceId = !Boolean(ResourceIds?.trim());
-
-    // 普通查询
-    if (queryType === 'normal') {
-      let tags = Tags && JSON.parse(Tags);
-      if (tags && Object.keys(tags).length > 0) {
-        tagsRequest = tags;
-      }
-      queryParams = {
-        ProductKey: ProductKey,
-        Region: replacedRegion,
-        CalcMethod: CalcMethod,
-        StartTime: Math.floor(from / 1000),
-        EndTime: Math.floor(to / 1000),
-        Selectors: noResourceId 
-        ? [{ ResourceId: '', Metric: MetricKey, Tags: tagsRequest || null }] 
-        : ResourceIdList?.map((id: string) => ({
-          ResourceId: id,
-          Metric: MetricKey,
-        })),
-        Tags: tagsRequest || null,
-      }
-    }
-
-    // 自定义查询
-    if (queryType === 'custom') {
-      let tags = replacedTags && JSON.parse(replacedTags);
-      if (tags && Object.keys(tags).length > 0) {
-        tagsRequest = tags;
-      }
-      let selectors: any[] = [];
-
-      replacedMetricInput?.split(',').forEach((metric: string) => {
-        if (noResourceId) {
-          selectors.push({
-            ResourceId: '',
-            Metric: metric,
-            Tags: tagsRequest || null,
-          })
-        } else {
-          replacedResourceIds?.split(',').forEach((id: string) => {
-            selectors.push({
-              ResourceId: id,
-              Metric: metric,
-            })
-          })
+    const cloudWatchQueryParams: any = (() => {
+      let queryParams: any = {};
+      let tagsRequest: any = {};
+      let ResourceIdList = ResourceIds?.split(',') || [];
+      let noResourceId = !Boolean(ResourceIds?.trim());
+      // 普通查询
+      if (queryType === 'normal') {
+        let tags = Tags && JSON.parse(Tags);
+        if (tags && Object.keys(tags).length > 0) {
+          tagsRequest = tags;
         }
-      })
-
-      queryParams = {
-        ProductKey: ProductKey,
-        Region: replacedRegion,
-        CalcMethod: CalcMethod,
-        StartTime: Math.floor(from / 1000),
-        EndTime: Math.floor(to / 1000),
-        Selectors: selectors,
-        Tags: tagsRequest || null,
+        queryParams = {
+          ProductKey: ProductKey,
+          Region: replacedRegion,
+          CalcMethod: CalcMethod,
+          StartTime: Math.floor(from / 1000),
+          EndTime: Math.floor(to / 1000),
+          Selectors: noResourceId
+            ? [{ ResourceId: '', Metric: MetricKey, Tags: tagsRequest || null }]
+            : ResourceIdList?.map((id: string) => ({
+              ResourceId: id,
+              Metric: MetricKey,
+            })),
+          Tags: tagsRequest || null,
+        }
       }
-    }
 
-    if (!queryParams.ProductKey) {
+      // 自定义查询
+      if (queryType === 'custom') {
+        let tags = replacedTags && JSON.parse(replacedTags);
+        if (tags && Object.keys(tags).length > 0) {
+          tagsRequest = tags;
+        }
+        let selectors: any[] = [];
+
+        replacedMetricInput?.split(',').forEach((metric: string) => {
+          if (noResourceId) {
+            selectors.push({
+              ResourceId: '',
+              Metric: metric,
+              Tags: tagsRequest || null,
+            })
+          } else {
+            replacedResourceIds?.split(',').forEach((id: string) => {
+              selectors.push({
+                ResourceId: id,
+                Metric: metric,
+              })
+            })
+          }
+        })
+
+        queryParams = {
+          ProductKey: ProductKey,
+          Region: replacedRegion,
+          CalcMethod: CalcMethod,
+          StartTime: Math.floor(from / 1000),
+          EndTime: Math.floor(to / 1000),
+          Selectors: selectors,
+          Tags: tagsRequest || null,
+        }
+      }
+      return queryParams;
+
+    })()
+
+    if (!cloudWatchQueryParams.ProductKey && namespaceType === 'CloudWatch') {
       return { data: [] };
     }
 
-    const data = await this.request('QueryMonitorData', queryParams);
+
+
+    const cloudEagleQueryParams: any = (() => {
+      let queryParams: any = {};
+      let tagsRequest: any = {};
+      // 普通查询
+      if (queryType === 'normal') {
+        let tags = Tags && JSON.parse(Tags);
+        if (tags && Object.keys(tags).length > 0) {
+          tagsRequest = tags;
+        }
+
+        const Selectors = ResourceUuid?.split(',').map((uuid: string) => ({
+          ResourceUuid: uuid.trim(),
+          Metric: MetricKey,
+          Tags: tagsRequest || null,
+        }));
+
+        return {
+          Namespace,
+          Period: CalcMethod,
+          StartTime: Math.floor(from / 1000),
+          EndTime: Math.floor(to / 1000),
+          Cluster,
+          Selectors,
+          Backend: BACKEND,
+        }
+      }
+      // 自定义查询
+      if (queryType === 'custom') {
+        let tags = replacedTags && JSON.parse(replacedTags);
+        if (tags && Object.keys(tags).length > 0) {
+          tagsRequest = tags;
+        }
+
+
+        const Selectors = (() => {
+          if (!ResourceUuid?.trim()) { return []; }
+          if (!MetricInput?.trim()) { return [] }
+
+          const resourceUuids = replacedResourceUuid?.split(',') || [];
+          const metrics = replacedMetricInput?.split(',') || [];
+
+          const selectors: any[] = [];
+          resourceUuids.forEach((resourceUuid: string) => {
+            metrics.forEach((metric: string) => {
+              selectors.push({
+                ResourceUuid: resourceUuid.trim(),
+                Metric: metric.trim(),
+                Tags: tagsRequest || null,
+              });
+            });
+          });
+          return selectors;
+
+
+        })()
+
+        return {
+          Namespace,
+          Period: CalcMethod,
+          StartTime: Math.floor(from / 1000),
+          EndTime: Math.floor(to / 1000),
+          Cluster: replacedCluster?.trim(),
+          Selectors,
+          Backend: BACKEND,
+        }
+      }
+      return queryParams;
+
+    })()
+
+    if (namespaceType === 'CloudEagle' && !cloudEagleQueryParams.Selectors?.length) {
+      return { data: [] };
+    }
+
+
+
+    const data = await this.request(namespaceType === 'CloudEagle' ? 'QueryMetricData' : 'QueryMonitorData', namespaceType === 'CloudEagle' ? cloudEagleQueryParams : cloudWatchQueryParams);
 
     if (data.data?.RetCode !== 0) {
       throw new Error(data.data?.Message || '查询失败');
@@ -275,6 +354,54 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       return (response.data as any)?.Data?.List;
     } catch (error) {
       console.error('ListRegion error:', error);
+      throw error;
+    }
+  }
+  /**
+   * 获取命名空间
+   */
+  async ListNamespace() {
+    try {
+      const response = await this.request('ListNamespace', { Offset: 0, Limit: 2000, Backend: BACKEND });
+      return (response.data as any)?.Data;
+    } catch (error) {
+      console.error('ListNamespace error:', error);
+      throw error;
+    }
+  }
+  /**
+   * 获取数据集群
+   */
+  async ListCluster() {
+    try {
+      const response = await this.request('ListCluster', { Backend: BACKEND });
+      return (response.data as any)?.Data?.List;
+    } catch (error) {
+      console.error('ListCluster error:', error);
+      throw error;
+    }
+  }
+  /**
+   * 获取对象类型
+   */
+  async ListResourceCategory(params: any) {
+    try {
+      const response = await this.request('ListResourceCategory', { Offset: 0, Limit: 2000, Backend: BACKEND, ...params });
+      return (response.data as any)?.Data?.List;
+    } catch (error) {
+      console.error('ListResourceCategory error:', error);
+      throw error;
+    }
+  }
+  /**
+   * 获取指标列表
+   */
+  async ListMetric(params: any) {
+    try {
+      const response = await this.request('ListMetric', { Offset: 0, Limit: 2000, Backend: BACKEND, ...params });
+      return (response.data as any)?.Data;
+    } catch (error) {
+      console.error('ListMetric error:', error);
       throw error;
     }
   }

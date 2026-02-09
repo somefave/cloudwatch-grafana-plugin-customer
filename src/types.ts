@@ -5,9 +5,14 @@ export interface MyQuery extends DataQuery {
   queryText?: string;
   requestParam1?: string;
   queryType?: 'normal' | 'custom';
+  namespaceType?: 'CloudWatch' | 'CloudEagle';
+  CategoryKey?: string;
+  Namespace?: string;
+  Cluster?: string;
   ProductKey?: string;
   MetricKey?: string;
   ResourceIds?: string;
+  ResourceUuid?: string;
   Tags?: string;
   CalcMethod?: string;
   Region?: string;
@@ -17,10 +22,15 @@ export interface MyQuery extends DataQuery {
 
 export const DEFAULT_QUERY: Partial<MyQuery> = {
   queryType: 'normal',
+  namespaceType: 'CloudWatch',
+  Namespace: '',
+  Cluster: '',
+  CategoryKey: '',
   ProductKey: '',
   MetricKey: '',
   CalcMethod: '',
   ResourceIds: '',
+  ResourceUuid: '',
   Tags: '',
   Region: '',
   RegionInput: '',
