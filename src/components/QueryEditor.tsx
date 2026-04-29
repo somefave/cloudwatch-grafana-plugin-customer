@@ -1,111 +1,239 @@
-import { QueryEditorProps } from '@grafana/data';
-import { InlineField, RadioButtonGroup, Stack } from '@grafana/ui';
-import React, { useCallback, useEffect, useState } from 'react';
-import { DataSource } from '../datasource';
-import { MyDataSourceOptions, MyQuery } from '../types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
+import { getTemplateSrv } from '@grafana/runtime';
+import {
+  Button,
+  InlineField,
+  MultiSelect,
+  Select,
+  Stack,
+} from '@grafana/ui';
 
-import { CloudEagleCustom } from './CloudEagleCustom';
-import { CloudEagleNormal } from './CloudEagleNormal';
-import { QueryCustom } from './QueryCustom';
-import { QueryNormal } from './QueryNormal';
+import { DataSource } from '../datasource';
+import { MyDataSourceOptions, MyQuery, TagPair } from '../types';
+import { MAX_RESOURCE_SELECTIONS } from '../config/enums';
+import { TagsKVEditor } from './TagsKVEditor';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
+type Option = { text: string; value: string };
+
+// 把后端 Option[] 转成 Grafana SelectableValue 并前置 Dashboard 模板变量
+function mergeVarOptions(apiList: Option[]): Array<SelectableValue<string>> {
+  const vars = getTemplateSrv()
+    .getVariables()
+    .map((v) => ({
+      label: `$${v.name}`,
+      value: `$${v.name}`,
+      description: '模板变量',
+    }));
+  const api = apiList.map((item) => ({ label: item.text, value: item.value }));
+  return [...vars, ...api];
+}
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
+  const {
+    projectId,
+    productKey,
+    region,
+    metric,
+    resourceIds = [],
+    tags = [],
+    calcMethod,
+  } = query;
 
-  const { queryType, namespaceType } = query;
+  const [projectOptions, setProjectOptions] = useState<Option[]>([]);
+  const [productOptions, setProductOptions] = useState<Option[]>([]);
+  const [regionOptions, setRegionOptions] = useState<Option[]>([]);
+  const [metricOptions, setMetricOptions] = useState<Option[]>([]);
+  const [resourceOptions, setResourceOptions] = useState<Option[]>([]);
+  const [aggregationOptions, setAggregationOptions] = useState<Array<SelectableValue<string>>>([]);
 
+  const onKeyChange = useCallback(
+    (key: keyof MyQuery, value: any) => {
+      onChange({ ...query, [key]: value });
+    },
+    [query, onChange]
+  );
 
-  const onKeyChange = useCallback((key: string, value: any) => {
-    onChange({
-      ...query,
-      [key]: value,
-    });
-  }, [query, onChange])
-
+  // 初次加载：项目、产品、聚合方式
   useEffect(() => {
-    if (!queryType) {
-      onKeyChange('queryType', 'normal');
-    }
-    if (!namespaceType) {
-      onKeyChange('namespaceType', 'CloudWatch');
-    }
-  }, [queryType, namespaceType, onKeyChange])
-
-  const [NamespaceOptions, setNamespaceOptions] = useState<any[]>([]);
-
-  useEffect(() => {
-    datasource.ListNamespace().then((res) => {
-      if (res && res.length > 0) {
-        setNamespaceOptions(res.map((item: any) => ({
-          label: item.Name + '(' + item.Namespace + ')',
-          value: item.Namespace,
-        })));
-      }
-    });
+    datasource.getResource<Option[]>('/projects').then(setProjectOptions).catch(() => setProjectOptions([]));
+    datasource.getResource<Option[]>('/products').then(setProductOptions).catch(() => setProductOptions([]));
+    datasource
+      .getResource<Array<{ text: string; value: string }>>('/aggregations')
+      .then((list) => {
+        const opts = (list || []).map((it) => ({ label: it.text, value: it.value }));
+        setAggregationOptions(opts);
+        // 默认值：标记 "(默认)" 后缀的那一项；若当前未选中则自动选
+        if (!calcMethod) {
+          const def = (list || []).find((it) => (it.text || '').includes('(默认)'));
+          if (def) {
+            onChange({ ...query, calcMethod: def.value });
+          }
+        }
+      })
+      .catch(() => setAggregationOptions([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [datasource]);
 
+  // 产品变化 → 拉地域、指标
+  useEffect(() => {
+    if (!productKey) {
+      setRegionOptions([]);
+      setMetricOptions([]);
+      return;
+    }
+    datasource
+      .getResource<Option[]>(`/regions?productKey=${encodeURIComponent(productKey)}`)
+      .then(setRegionOptions)
+      .catch(() => setRegionOptions([]));
+    datasource
+      .getResource<Option[]>(`/metrics?productKey=${encodeURIComponent(productKey)}`)
+      .then(setMetricOptions)
+      .catch(() => setMetricOptions([]));
+  }, [productKey, datasource]);
 
+  // 产品/地域/项目变化 → 拉资源
+  useEffect(() => {
+    if (!productKey) {
+      setResourceOptions([]);
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('productKey', productKey);
+    if (region) {
+      params.set('region', region);
+    }
+    if (projectId) {
+      params.set('projectId', projectId);
+    }
+    datasource
+      .getResource<Option[]>(`/resources?${params.toString()}`)
+      .then(setResourceOptions)
+      .catch(() => setResourceOptions([]));
+  }, [productKey, region, projectId, datasource]);
+
+  const projectSelectOptions = useMemo(() => mergeVarOptions(projectOptions), [projectOptions]);
+  const regionSelectOptions = useMemo(() => mergeVarOptions(regionOptions), [regionOptions]);
+  const resourceSelectOptions = useMemo(() => mergeVarOptions(resourceOptions), [resourceOptions]);
+
+  const productSelectOptions = useMemo(
+    () => productOptions.map((it) => ({ label: it.text, value: it.value })),
+    [productOptions]
+  );
+  const metricSelectOptions = useMemo(
+    () => metricOptions.map((it) => ({ label: it.text, value: it.value })),
+    [metricOptions]
+  );
+
+  // 资源多选上限 20
+  const resourceWarnRef = useRef(false);
+  const onResourceChange = (values: Array<SelectableValue<string>>) => {
+    if (values.length > MAX_RESOURCE_SELECTIONS) {
+      if (!resourceWarnRef.current) {
+        resourceWarnRef.current = true;
+        window.setTimeout(() => (resourceWarnRef.current = false), 1500);
+        alert(`资源对象最多选择 ${MAX_RESOURCE_SELECTIONS} 个`);
+      }
+      return;
+    }
+    onKeyChange('resourceIds', values.map((v) => v.value!).filter(Boolean));
+  };
+
+  const onTagsChange = (next: TagPair[]) => onKeyChange('tags', next);
 
   return (
     <Stack gap={1} direction="column">
-      <InlineField label="数据源" labelWidth={12}>
-        <RadioButtonGroup
-          value={namespaceType}
-          onChange={(value) => onKeyChange('namespaceType', value)}
-          options={[
-            { label: 'CloudWatch', value: 'CloudWatch' },
-            { label: 'CloudEagle', value: 'CloudEagle' },
-          ]}
+      <InlineField label="项目" labelWidth={14} required>
+        <Select
+          width={40}
+          placeholder="选择项目"
+          value={projectId}
+          options={projectSelectOptions}
+          onChange={(e) => onKeyChange('projectId', e?.value ?? '')}
+          isClearable
         />
       </InlineField>
 
-      <InlineField label="查询类型" labelWidth={12}>
-        <RadioButtonGroup
-          value={queryType}
-          onChange={(value) => onKeyChange('queryType', value)}
-          options={[
-            { label: '普通查询', value: 'normal' },
-            { label: '自定义查询', value: 'custom' },
-          ]}
+      <InlineField label="产品类型" labelWidth={14} required>
+        <Select
+          width={40}
+          placeholder="请选择产品类型"
+          value={productKey}
+          options={productSelectOptions}
+          onChange={(e) => {
+            // 切换产品时清空地域/指标/资源
+            onChange({
+              ...query,
+              productKey: e?.value,
+              region: undefined,
+              metric: undefined,
+              resourceIds: [],
+            });
+          }}
+          isSearchable
         />
       </InlineField>
 
-      {queryType === 'normal' && namespaceType === 'CloudWatch' ? (
-        // 普通查询
-        <QueryNormal
-          onKeyChange={onKeyChange}
-          values={query}
-          datasource={datasource}
+      <InlineField label="地域" labelWidth={14} required tooltip="全局产品无需选择地域">
+        <Select
+          width={40}
+          placeholder={productKey ? '请选择地域' : '请先选择产品类型'}
+          value={region}
+          options={regionSelectOptions}
+          onChange={(e) => onKeyChange('region', e?.value ?? '')}
+          isClearable
+          disabled={!productKey}
         />
-      ) : null}
-      {queryType === 'custom' && namespaceType === 'CloudWatch' ? (
-        // 自定义查询
-        <QueryCustom
-          onKeyChange={onKeyChange}
-          values={query}
-          datasource={datasource}
+      </InlineField>
+
+      <InlineField label="指标" labelWidth={14} required>
+        <Select
+          width={40}
+          placeholder={productKey ? '请选择指标' : '请先选择产品类型'}
+          value={metric}
+          options={metricSelectOptions}
+          onChange={(e) => onKeyChange('metric', e?.value ?? '')}
+          isSearchable
+          disabled={!productKey}
         />
-      ) : null}
-      {queryType === 'normal' && namespaceType === 'CloudEagle' ? (
-        // 普通查询
-        <CloudEagleNormal
-          onKeyChange={onKeyChange}
-          values={query}
-          NamespaceOptions={NamespaceOptions}
-          datasource={datasource}
+      </InlineField>
+
+      <InlineField
+        label="资源对象"
+        labelWidth={14}
+        required
+        tooltip={`最多选择 ${MAX_RESOURCE_SELECTIONS} 个资源`}
+      >
+        <MultiSelect
+          width={60}
+          placeholder={productKey ? '请选择资源' : '请选择产品类型和地域'}
+          value={resourceIds}
+          options={resourceSelectOptions}
+          onChange={onResourceChange}
+          disabled={!productKey}
         />
-      ) : null}
-      {queryType === 'custom' && namespaceType === 'CloudEagle' ? (
-        // 自定义查询
-        <CloudEagleCustom
-          onKeyChange={onKeyChange}
-          NamespaceOptions={NamespaceOptions}
-          values={query}
-          datasource={datasource}
+      </InlineField>
+
+      <InlineField label="数据维度" labelWidth={14} grow>
+        <TagsKVEditor value={tags} onChange={onTagsChange} />
+      </InlineField>
+
+      <InlineField label="聚合方式" labelWidth={14}>
+        <Select
+          width={40}
+          placeholder="请选择聚合方式"
+          value={calcMethod}
+          options={aggregationOptions}
+          onChange={(e) => onKeyChange('calcMethod', e?.value ?? '')}
         />
-      ) : null}
+      </InlineField>
+
+      <Stack direction="row">
+        <Button size="sm" onClick={() => onRunQuery()}>
+          运行查询
+        </Button>
+      </Stack>
     </Stack>
   );
 }

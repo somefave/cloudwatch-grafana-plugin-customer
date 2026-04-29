@@ -26,26 +26,6 @@ const pluginJson = getPluginJson();
 const cpVersion = getCPConfigVersion();
 const pluginVersion = getPackageJson().version;
 
-// 读取构建配置文件
-// 根据 BUILD_ENV 环境变量决定使用哪个配置文件，默认为 test
-const getBuildConfig = () => {
-  const buildEnv = process.env.BUILD_ENV || 'test';
-  const configPath = path.resolve(process.cwd(), 'config', `${buildEnv}.json`);
-
-  try {
-    if (fs.existsSync(configPath)) {
-      const configContent = fs.readFileSync(configPath, 'utf-8');
-      return JSON.parse(configContent);
-    } else {
-      console.warn(`配置文件 ${configPath} 不存在，使用默认配置`);
-      return { backend: 'CloudEagle' };
-    }
-  } catch (error) {
-    console.error(`读取配置文件失败: ${error}`);
-    return { backend: 'CloudEagle' };
-  }
-};
-
 const virtualPublicPath = new VirtualModulesPlugin({
   'node_modules/grafana-public-path.js': `
 import amdMetaModule from 'amd-module';
@@ -179,13 +159,6 @@ const config = async (env: Env): Promise<Configuration> => {
     plugins: [
       new BuildModeWebpackPlugin(),
       virtualPublicPath,
-      // 注入构建配置
-      // 从 config/{BUILD_ENV}.json 读取配置，BUILD_ENV 默认为 test
-      // 测试环境: config/test.json (backend: CloudEagle)
-      // 线上环境: config/prod.json (backend: YunYing)
-      new webpack.DefinePlugin({
-        'BUILD_CONFIG': JSON.stringify(getBuildConfig()),
-      }),
       // Insert create plugin version information into the bundle
       new webpack.BannerPlugin({
         banner: `/* [create-plugin] version: ${cpVersion} */

@@ -1,31 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
-  "name": "Cloudwatch-Ucloud",
+  "name": "UCloud-CloudWatch-Monitor",
   "id": "ucloud-cloudwatch-datasource",
   "metrics": true,
-  "backend": false,
-
-  "routes": [
-    {
-      "path": "*",
-      "method": "*",
-      "url": "{{ .JsonData.baseUrl }}",
-      "headers": [
-        {
-          "name": "apiKey",
-          "apiKey": "{{ .JsonData.apiKey }}"
-        }
-      ]
-    }
-  ],
-
+  "backend": true,
+  "executable": "gpx_ucloud_cloudwatch",
   "info": {
-    "description": "",
+    "description": "UCloud CloudWatch 数据源插件，支持在 Grafana 中查询 UCloud 云监控指标",
     "author": {
       "name": "Ucloud"
     },
-    "keywords": ["datasource"],
+    "keywords": ["datasource", "ucloud", "cloudwatch"],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"

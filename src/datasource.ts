@@ -1,408 +1,86 @@
 import {
   CoreApp,
-  DataQueryRequest,
-  DataQueryResponse,
-  DataSourceApi,
   DataSourceInstanceSettings,
-  // createDataFrame,
-  FieldType,
+  MetricFindValue,
+  ScopedVars,
 } from '@grafana/data';
-import { getBackendSrv, getTemplateSrv, isFetchError } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
-import { lastValueFrom } from 'rxjs';
-import { BACKEND } from './config';
-import { DEFAULT_QUERY, DataSourceResponse, MyDataSourceOptions, MyQuery } from './types';
+import { DEFAULT_QUERY, MyDataSourceOptions, MyQuery, MyVariableQuery } from './types';
 
-export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
-  baseUrl: string;
-  url: string;
-  apiKey: string;
+/**
+ * 数据源前端代理：
+ * - 查询透传到 Go 后端（由 DataSourceWithBackend 实现）
+ * - 下拉数据通过 getResource 调用后端 CallResource
+ * - applyTemplateVariables 负责把 $project/$region/$resource 替换为实际值
+ */
+export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
     super(instanceSettings);
-    this.baseUrl = instanceSettings.jsonData.baseUrl || 'http://internal-api-test03.service.ucloud.cn';
-    this.url = instanceSettings.url!;
-    this.apiKey = instanceSettings.jsonData.apiKey || '';
   }
 
   getDefaultQuery(_: CoreApp): Partial<MyQuery> {
     return DEFAULT_QUERY;
   }
 
-  // 验证查询参数是否有效，如果必要的参数没有填，就不执行查询
   filterQuery(query: MyQuery): boolean {
-    // 检查必要的查询参数是否存在
-    // if (query.queryType === 'normal') {
-    //   return !!(query.ProductKey?.value && query.MetricKey?.value);
-    // }
-    // return !!query.queryText;
-    return true;
+    // PRD/API 必填：项目、产品、地域、指标、资源对象
+    return Boolean(
+      query.projectId &&
+        query.productKey &&
+        query.region &&
+        query.metric &&
+        (query.resourceIds?.length ?? 0) > 0
+    );
   }
 
-  // 真正的查询接口
-  async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    const { range } = options;
-    const from = range!.from.valueOf();
-    const to = range!.to.valueOf();
+  applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): MyQuery {
+    const srv = getTemplateSrv();
+    return {
+      ...query,
+      projectId: query.projectId ? srv.replace(query.projectId, scopedVars) : query.projectId,
+      region: query.region ? srv.replace(query.region, scopedVars) : query.region,
+      resourceIds: (query.resourceIds || []).flatMap((id) => {
+        const replaced = srv.replace(id, scopedVars);
+        // 模板变量可能返回逗号分隔的字符串
+        return replaced.split(',').map((s) => s.trim()).filter(Boolean);
+      }),
+    };
+  }
 
-    const templateSrv = getTemplateSrv();
+  /**
+   * 模板变量查询：type = project / region / resource
+   */
+  async metricFindQuery(query: MyVariableQuery | string): Promise<MetricFindValue[]> {
+    // 兼容旧版本字符串形式，默认按 project
+    const q: MyVariableQuery = typeof query === 'string' ? { type: 'project' } : query;
 
-    const { ProductKey, Region, CalcMethod, ResourceIds, MetricKey, MetricInput, queryType, Tags, Namespace, namespaceType, Cluster, ResourceUuid } = options.targets[0];
-
-    // 以下自定义变量，只用在自定义查询中
-    // 替换 Region 变量，支持 $region 或 ${region} 语法
-    const replacedRegion = Region ? templateSrv.replace(Region) : Region;
-    const replacedCluster = Cluster ? templateSrv.replace(Cluster) : Cluster;
-    const replacedResourceIds = ResourceIds ? templateSrv.replace(ResourceIds) : ResourceIds;
-    const replacedMetricInput = MetricInput ? templateSrv.replace(MetricInput) : MetricInput;
-    const replacedTags = Tags ? templateSrv.replace(Tags) : Tags;
-    const replacedResourceUuid = ResourceUuid ? templateSrv.replace(ResourceUuid) : ResourceUuid;
-
-
-    const cloudWatchQueryParams: any = (() => {
-      let queryParams: any = {};
-      let tagsRequest: any = {};
-      let ResourceIdList = ResourceIds?.split(',') || [];
-      let noResourceId = !Boolean(ResourceIds?.trim());
-      // 普通查询
-      if (queryType === 'normal') {
-        let tags = Tags && JSON.parse(Tags);
-        if (tags && Object.keys(tags).length > 0) {
-          tagsRequest = tags;
-        }
-        queryParams = {
-          ProductKey: ProductKey,
-          Region: replacedRegion,
-          CalcMethod: CalcMethod,
-          StartTime: Math.floor(from / 1000),
-          EndTime: Math.floor(to / 1000),
-          Selectors: noResourceId
-            ? [{ ResourceId: '', Metric: MetricKey, Tags: tagsRequest || null }]
-            : ResourceIdList?.map((id: string) => ({
-              ResourceId: id,
-              Metric: MetricKey,
-            })),
-          Tags: tagsRequest || null,
-        }
+    let path = '';
+    const params = new URLSearchParams();
+    if (q.type === 'project') {
+      path = '/projects';
+    } else if (q.type === 'region') {
+      path = '/regions';
+      if (q.productKey) {
+        params.set('productKey', q.productKey);
       }
-
-      // 自定义查询
-      if (queryType === 'custom') {
-        let tags = replacedTags && JSON.parse(replacedTags);
-        if (tags && Object.keys(tags).length > 0) {
-          tagsRequest = tags;
-        }
-        let selectors: any[] = [];
-
-        replacedMetricInput?.split(',').forEach((metric: string) => {
-          if (noResourceId) {
-            selectors.push({
-              ResourceId: '',
-              Metric: metric,
-              Tags: tagsRequest || null,
-            })
-          } else {
-            replacedResourceIds?.split(',').forEach((id: string) => {
-              selectors.push({
-                ResourceId: id,
-                Metric: metric,
-              })
-            })
-          }
-        })
-
-        queryParams = {
-          ProductKey: ProductKey,
-          Region: replacedRegion,
-          CalcMethod: CalcMethod,
-          StartTime: Math.floor(from / 1000),
-          EndTime: Math.floor(to / 1000),
-          Selectors: selectors,
-          Tags: tagsRequest || null,
-        }
+    } else if (q.type === 'resource') {
+      path = '/resources';
+      if (q.productKey) {
+        params.set('productKey', q.productKey);
       }
-      return queryParams;
-
-    })()
-
-    if (!cloudWatchQueryParams.ProductKey && namespaceType === 'CloudWatch') {
-      return { data: [] };
-    }
-
-
-
-    const cloudEagleQueryParams: any = (() => {
-      let queryParams: any = {};
-      let tagsRequest: any = {};
-      // 普通查询
-      if (queryType === 'normal') {
-        let tags = Tags && JSON.parse(Tags);
-        if (tags && Object.keys(tags).length > 0) {
-          tagsRequest = tags;
-        }
-
-        const Selectors = ResourceUuid?.split(',').map((uuid: string) => ({
-          ResourceUuid: uuid.trim(),
-          Metric: MetricKey,
-          Tags: tagsRequest || null,
-        }));
-
-        return {
-          Namespace,
-          Period: CalcMethod,
-          StartTime: Math.floor(from / 1000),
-          EndTime: Math.floor(to / 1000),
-          Cluster,
-          Selectors,
-          Backend: BACKEND,
-        }
+      if (q.region) {
+        params.set('region', q.region);
       }
-      // 自定义查询
-      if (queryType === 'custom') {
-        let tags = replacedTags && JSON.parse(replacedTags);
-        if (tags && Object.keys(tags).length > 0) {
-          tagsRequest = tags;
-        }
-
-
-        const Selectors = (() => {
-          if (!ResourceUuid?.trim()) { return []; }
-          if (!MetricInput?.trim()) { return [] }
-
-          const resourceUuids = replacedResourceUuid?.split(',') || [];
-          const metrics = replacedMetricInput?.split(',') || [];
-
-          const selectors: any[] = [];
-          resourceUuids.forEach((resourceUuid: string) => {
-            metrics.forEach((metric: string) => {
-              selectors.push({
-                ResourceUuid: resourceUuid.trim(),
-                Metric: metric.trim(),
-                Tags: tagsRequest || null,
-              });
-            });
-          });
-          return selectors;
-
-
-        })()
-
-        return {
-          Namespace,
-          Period: CalcMethod,
-          StartTime: Math.floor(from / 1000),
-          EndTime: Math.floor(to / 1000),
-          Cluster: replacedCluster?.trim(),
-          Selectors,
-          Backend: BACKEND,
-        }
+      if (q.projectId) {
+        params.set('projectId', q.projectId);
       }
-      return queryParams;
-
-    })()
-
-    if (namespaceType === 'CloudEagle' && !cloudEagleQueryParams.Selectors?.length) {
-      return { data: [] };
+    } else {
+      return [];
     }
 
-
-
-    const data = await this.request(namespaceType === 'CloudEagle' ? 'QueryMetricData' : 'QueryMonitorData', namespaceType === 'CloudEagle' ? cloudEagleQueryParams : cloudWatchQueryParams);
-
-    if (data.data?.RetCode !== 0) {
-      throw new Error(data.data?.Message || '查询失败');
-    }
-
-    // 处理数据，将数据转换为 Grafana 需要的格式
-    const { List } = (data.data as any)?.Data || [];
-
-    let formattedData: any[] = [];
-
-    List?.forEach((item: any) => {
-      const { Metric, Results } = item;
-
-      Results.forEach((result: any) => {
-        const { ResourceId, Values, TagMap } = result;
-        let tagInfos = '';
-        Object.keys(TagMap).map((key, index) => {
-          const isFirst = index === 0;
-          const spacing = isFirst ? '' : '\xa0\xa0';
-          if (key !== 'uuid' && key !== 'skym_namespace') {
-            // @ts-ignore
-            tagInfos += spacing + `${key}:${TagMap[key]}`;
-          }
-        });
-
-        const basicName = Metric + '-' + ResourceId;
-        const actualName = tagInfos ? basicName + '-' + tagInfos : basicName;
-
-        const actualData = {
-          name: actualName,
-          fields: [
-            {
-              name: 'Time',
-              values: Values.map((value: any) => value.Timestamp * 1000),
-              type: FieldType.time,
-            },
-            {
-              name: 'Value',
-              values: Values.map((value: any) => value.Value),
-              type: FieldType.number,
-            },
-          ],
-        }
-        formattedData.push(actualData);
-      });
-    })
-
-    return { data: formattedData };
-  }
-
-  async request(action: string, data?: any) {
-    // 构建完整的请求 URL
-    // this.url 是 Grafana 的代理路径，例如: /api/datasources/proxy/uid/xxx
-    // Grafana 会根据 plugin.json 中的 routes 配置，将请求转发到 baseUrl
-
-    // 使用传入的 action，如果没有则使用默认的 action
-    const actionUrl = `${this.url}?Action=${action}`;
-
-    const response = getBackendSrv().fetch<DataSourceResponse>({
-      url: actionUrl,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apiKey': this.apiKey,
-      },
-      data: {
-        Backend: 'CloudWatchAdmin',
-        Action: action,
-        ...data,
-      },
-    });
-    return lastValueFrom(response);
-  }
-
-  /**
-   * Checks whether we can connect to the API.
-   */
-  async testDatasource() {
-    const defaultErrorMessage = 'Cannot connect to API';
-
-    try {
-      const response = await this.request('GetProductTypes', {});
-      if (response.status === 200) {
-        return {
-          status: 'success',
-          message: 'Success',
-        };
-      } else {
-        return {
-          status: 'error',
-          message: response.statusText ? response.statusText : defaultErrorMessage,
-        };
-      }
-    } catch (err) {
-      let message = '';
-      if (typeof err === 'string') {
-        message = err;
-      } else if (isFetchError(err)) {
-        message = 'Fetch error: ' + (err.statusText ? err.statusText : defaultErrorMessage);
-        if (err.data && err.data.error && err.data.error.code) {
-          message += ': ' + err.data.error.code + '. ' + err.data.error.message;
-        }
-      }
-      return {
-        status: 'error',
-        message,
-      };
-    }
-  }
-
-  /**
-   * 获取所有的产品类型
-   */
-  async getProductTypes() {
-    try {
-      const response = await this.request('GetProductTypes', {});
-      return (response.data as any)?.Data;
-    } catch (error) {
-      console.error('GetProductTypes error:', error);
-      throw error;
-    }
-  }
-
-
-  /**
-   * 获取产品下的指标
-   */
-  async getProductMetrics(productKey: string) {
-    try {
-      const response = await this.request('GetProductMetrics', { ProductKey: productKey });
-      return (response.data as any)?.Data?.List;
-    } catch (error) {
-      console.error('GetProductMetrics error:', error);
-      throw error;
-    }
-  }
-
-
-  /**
-   * 获取地域列表
-   */
-  async ListRegion() {
-    try {
-      const response = await this.request('ListRegion', {});
-      return (response.data as any)?.Data?.List;
-    } catch (error) {
-      console.error('ListRegion error:', error);
-      throw error;
-    }
-  }
-  /**
-   * 获取命名空间
-   */
-  async ListNamespace() {
-    try {
-      const response = await this.request('ListNamespace', { Offset: 0, Limit: 2000, Backend: BACKEND });
-      return (response.data as any)?.Data;
-    } catch (error) {
-      console.error('ListNamespace error:', error);
-      throw error;
-    }
-  }
-  /**
-   * 获取数据集群
-   */
-  async ListCluster() {
-    try {
-      const response = await this.request('ListCluster', { Backend: BACKEND });
-      return (response.data as any)?.Data?.List;
-    } catch (error) {
-      console.error('ListCluster error:', error);
-      throw error;
-    }
-  }
-  /**
-   * 获取对象类型
-   */
-  async ListResourceCategory(params: any) {
-    try {
-      const response = await this.request('ListResourceCategory', { Offset: 0, Limit: 2000, Backend: BACKEND, ...params });
-      return (response.data as any)?.Data?.List;
-    } catch (error) {
-      console.error('ListResourceCategory error:', error);
-      throw error;
-    }
-  }
-  /**
-   * 获取指标列表
-   */
-  async ListMetric(params: any) {
-    try {
-      const response = await this.request('ListMetric', { Offset: 0, Limit: 2000, Backend: BACKEND, ...params });
-      return (response.data as any)?.Data;
-    } catch (error) {
-      console.error('ListMetric error:', error);
-      throw error;
-    }
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const list = await this.getResource<Array<{ text?: string; value: string }>>(`${path}${suffix}`);
+    return (list || []).map((item) => ({ text: item.text ?? item.value, value: item.value }));
   }
 }
