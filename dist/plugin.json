@@ -23,11 +23,11 @@
         "links": [],
         "screenshots": [],
         "version": "1.0.0",
-        "updated": "2026-04-28"
+        "updated": "2026-04-30"
     },
     "dependencies": {
         "grafanaDependency": ">=10.4.0",
         "plugins": []
     },
-    "buildMode": "development"
+    "buildMode": "production"
 }

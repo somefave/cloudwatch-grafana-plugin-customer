@@ -32,10 +32,14 @@ export const DEFAULT_QUERY: Partial<MyQuery> = {
 
 // 模板变量查询
 export interface MyVariableQuery {
+  // 查询类型：project（项目）、region（地域）、resource（资源）
   type: 'project' | 'region' | 'resource';
-  productKey?: string;
-  region?: string;
-  projectId?: string;
+  // 参数对象（依赖其他变量时填写）
+  params?: {
+    product?: string;   // 产品类型（如 "uhost"）
+    region?: string;    // 地域（可以是变量 "${region}"）
+    project?: string;   // 项目（可以是变量 "${project}"）
+  };
 }
 
 export interface DataPoint {

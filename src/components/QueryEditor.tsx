@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
 import {
-  Button,
   InlineField,
   MultiSelect,
   Select,
@@ -55,6 +54,20 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     [query, onChange]
   );
 
+  // 必填字段填满后自动触发查询
+  useEffect(() => {
+    const allFilled =
+      projectId &&
+      productKey &&
+      region &&
+      metric &&
+      resourceIds &&
+      resourceIds.length > 0;
+    if (allFilled) {
+      onRunQuery();
+    }
+  }, [projectId, productKey, region, metric, resourceIds, onRunQuery]);
+
   // 初次加载：项目、产品、聚合方式
   useEffect(() => {
     datasource.getResource<Option[]>('/projects').then(setProjectOptions).catch(() => setProjectOptions([]));
@@ -101,11 +114,13 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     }
     const params = new URLSearchParams();
     params.set('productKey', productKey);
+    // 替换模板变量（$region / $project）
+    const srv = getTemplateSrv();
     if (region) {
-      params.set('region', region);
+      params.set('region', srv.replace(region));
     }
     if (projectId) {
-      params.set('projectId', projectId);
+      params.set('projectId', srv.replace(projectId));
     }
     datasource
       .getResource<Option[]>(`/resources?${params.toString()}`)
@@ -228,12 +243,6 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           onChange={(e) => onKeyChange('calcMethod', e?.value ?? '')}
         />
       </InlineField>
-
-      <Stack direction="row">
-        <Button size="sm" onClick={() => onRunQuery()}>
-          运行查询
-        </Button>
-      </Stack>
     </Stack>
   );
 }

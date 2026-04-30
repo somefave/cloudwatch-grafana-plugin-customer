@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
@@ -82,6 +83,16 @@ func (d *Datasource) handleQuery(q backend.DataQuery) backend.DataResponse {
 		"Period":      period,
 		"MetricInfos": metricInfos,
 	}
+
+	log.DefaultLogger.Info("QueryMetricDataSet 请求摘要",
+		"region", model.Region,
+		"projectId", model.ProjectID,
+		"productKey", model.ProductKey,
+		"metric", model.Metric,
+		"resourceCount", len(resourceIDs),
+		"period", period,
+		"calcMethod", calcMethod,
+	)
 
 	raw, err := d.uclient.Invoke(payload)
 	if err != nil {

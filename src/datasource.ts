@@ -55,25 +55,27 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     // 兼容旧版本字符串形式，默认按 project
     const q: MyVariableQuery = typeof query === 'string' ? { type: 'project' } : query;
 
+    const srv = getTemplateSrv();
     let path = '';
     const params = new URLSearchParams();
+
     if (q.type === 'project') {
       path = '/projects';
     } else if (q.type === 'region') {
       path = '/regions';
-      if (q.productKey) {
-        params.set('productKey', q.productKey);
+      if (q.params?.product) {
+        params.set('productKey', srv.replace(q.params.product));
       }
     } else if (q.type === 'resource') {
       path = '/resources';
-      if (q.productKey) {
-        params.set('productKey', q.productKey);
+      if (q.params?.product) {
+        params.set('productKey', srv.replace(q.params.product));
       }
-      if (q.region) {
-        params.set('region', q.region);
+      if (q.params?.region) {
+        params.set('region', srv.replace(q.params.region));
       }
-      if (q.projectId) {
-        params.set('projectId', q.projectId);
+      if (q.params?.project) {
+        params.set('projectId', srv.replace(q.params.project));
       }
     } else {
       return [];

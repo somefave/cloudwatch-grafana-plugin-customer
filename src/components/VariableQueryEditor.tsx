@@ -1,81 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { InlineField, Select, Stack } from '@grafana/ui';
-import { DataSource } from '../datasource';
+import React, { useState } from 'react';
+import { InlineField, TextArea } from '@grafana/ui';
 import { MyVariableQuery } from '../types';
 
 interface Props {
-  query: MyVariableQuery;
+  query: MyVariableQuery | string;
   onChange: (query: MyVariableQuery, definition: string) => void;
-  datasource: DataSource;
 }
 
-type Option = { text: string; value: string };
-
-const TYPE_OPTIONS = [
-  { label: '项目（project）', value: 'project' },
-  { label: '地域（region）', value: 'region' },
-  { label: '资源（resource）', value: 'resource' },
-] as const;
-
 // 模板变量查询编辑器：Dashboard → Variables → Query 时使用
-export function VariableQueryEditor({ query, onChange, datasource }: Props) {
-  const q: MyVariableQuery = { ...query, type: query?.type ?? 'project' };
+// 用户手写 JSON 配置，参考火山云格式
+export function VariableQueryEditor({ query, onChange }: Props) {
+  // 兼容旧版本字符串形式或空对象
+  const initialStr = typeof query === 'string' ? query : JSON.stringify(query || { type: 'project' }, null, 2);
+  const [value, setValue] = useState(initialStr);
 
-  const [productOptions, setProductOptions] = useState<Option[]>([]);
-
-  useEffect(() => {
-    if (q.type === 'region' || q.type === 'resource') {
-      datasource.getResource<Option[]>('/products').then(setProductOptions).catch(() => setProductOptions([]));
+  const handleChange = (newValue: string) => {
+    setValue(newValue);
+    try {
+      const parsed = JSON.parse(newValue) as MyVariableQuery;
+      onChange(parsed, newValue);
+    } catch {
+      // 用户输入未完成时可能不是合法 JSON，暂不更新
     }
-  }, [q.type, datasource]);
-
-  const update = (patch: Partial<MyVariableQuery>) => {
-    const next = { ...q, ...patch };
-    onChange(next, `${next.type}${next.productKey ? `:${next.productKey}` : ''}`);
   };
 
   return (
-    <Stack gap={1} direction="column">
-      <InlineField label="查询类型" labelWidth={14}>
-        <Select
-          width={30}
-          value={q.type}
-          options={TYPE_OPTIONS as unknown as Array<{ label: string; value: MyVariableQuery['type'] }>}
-          onChange={(e) =>
-            update({
-              type: (e.value ?? 'project') as MyVariableQuery['type'],
-              productKey: undefined,
-              region: undefined,
-            })
-          }
-        />
-      </InlineField>
-
-      {(q.type === 'region' || q.type === 'resource') && (
-        <InlineField label="产品类型" labelWidth={14}>
-          <Select
-            width={40}
-            value={q.productKey}
-            options={productOptions.map((it) => ({ label: it.text, value: it.value }))}
-            onChange={(e) => update({ productKey: e?.value })}
-            isSearchable
-            placeholder="请选择产品类型"
-          />
-        </InlineField>
-      )}
-
-      {q.type === 'resource' && (
-        <InlineField label="地域" labelWidth={14}>
-          <Select
-            width={40}
-            value={q.region}
-            options={[]}
-            onChange={(e) => update({ region: e?.value })}
-            placeholder="可选，填写后按地域过滤"
-            allowCustomValue
-          />
-        </InlineField>
-      )}
-    </Stack>
+    <InlineField
+      label="查询配置"
+      labelWidth={14}
+      grow
+      tooltip='手写 JSON 配置。示例：
+项目：{"type": "project"}
+地域：{"type": "region"}
+资源：{"type": "resource", "params": {"product": "uhost", "region": "${region}", "project": "${project}"}}'
+    >
+      <TextArea
+        value={value}
+        onChange={(e) => handleChange(e.currentTarget.value)}
+        placeholder='{"type": "project"}'
+        rows={6}
+      />
+    </InlineField>
   );
 }
