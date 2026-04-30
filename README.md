@@ -132,7 +132,7 @@ docker logs --tail 200 ucloud-datasource-grafana 2>&1 | grep "UCloud API"
 
 `docker-compose-base.yaml` 已设：
 ```
-GF_LOG_FILTERS=plugin.ucloud-cloudwatch-datasource:debug
+GF_LOG_FILTERS=plugin.ucloud-cloudwatch-monitor:debug
 GF_LOG_LEVEL=debug
 ```
 
@@ -150,9 +150,9 @@ npm run release
 1. 清理 `dist/` 与 webpack 缓存
 2. 前端 production 构建
 3. 后端 7 平台构建（darwin/linux/windows × amd64/arm64/arm）
-4. 打包成 `ucloud-cloudwatch-datasource-<version>.zip`（自动读取 `package.json` 的 version）
+4. 打包成 `ucloud-cloudwatch-monitor-<version>.zip`（自动读取 `package.json` 的 version）
 
-产物：`ucloud-cloudwatch-datasource-1.0.0.zip`（约 50 MB）
+产物：`ucloud-cloudwatch-monitor-1.0.0.zip`（约 50 MB）
 
 ### 5.2 单平台构建
 
@@ -160,7 +160,7 @@ npm run release
 ```bash
 # 仅 Linux x86_64
 npm run build && mage -v build:linux
-zip -r ucloud-cloudwatch-datasource-linux-amd64.zip dist/
+zip -r ucloud-cloudwatch-monitor-linux-amd64.zip dist/
 ```
 
 ### 5.3 版本号升级
@@ -177,8 +177,8 @@ zip -r ucloud-cloudwatch-datasource-linux-amd64.zip dist/
 ### 6.1 解压到 Grafana 插件目录
 
 ```bash
-unzip ucloud-cloudwatch-datasource-1.0.0.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-datasource
-chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-datasource/gpx_ucloud_cloudwatch_*
+unzip ucloud-cloudwatch-monitor-1.0.0.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
+chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-monitor/gpx_ucloud_cloudwatch_*
 ```
 
 ### 6.2 允许加载未签名插件
@@ -190,7 +190,7 @@ chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-datasource/gpx_ucloud_cloudw
 plugins = /var/lib/grafana/plugins
 
 [plugins]
-allow_loading_unsigned_plugins = ucloud-cloudwatch-datasource
+allow_loading_unsigned_plugins = ucloud-cloudwatch-monitor
 ```
 
 ### 6.3 重启 Grafana
@@ -313,7 +313,7 @@ Dashboard → Settings → Variables → New variable，类型选 **Query**，�
    - 清理：`rm -rf dist node_modules/.cache && npm run build`
 
 3. **未签名插件未在 grafana.ini 配置允许**
-   - 加上 `allow_loading_unsigned_plugins = ucloud-cloudwatch-datasource`
+   - 加上 `allow_loading_unsigned_plugins = ucloud-cloudwatch-monitor`
 
 ### 11.2 下拉无数据
 

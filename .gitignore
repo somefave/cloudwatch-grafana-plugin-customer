@@ -13,7 +13,7 @@ work/
 ci/
 
 # 发布包（npm run release 输出）
-ucloud-cloudwatch-datasource-*.zip
+ucloud-cloudwatch-monitor-*.zip
 
 # Go 构建缓存
 *.test

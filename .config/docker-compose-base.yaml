@@ -21,13 +21,13 @@ services:
       - 8.8.8.8
       - 8.8.4.4
     volumes:
-      - ../dist:/var/lib/grafana/plugins/ucloud-cloudwatch-datasource
+      - ../dist:/var/lib/grafana/plugins/ucloud-cloudwatch-monitor
       - ../provisioning:/etc/grafana/provisioning
-      - ..:/root/ucloud-cloudwatch-datasource
+      - ..:/root/ucloud-cloudwatch-monitor
 
     environment:
       NODE_ENV: development
-      GF_LOG_FILTERS: plugin.ucloud-cloudwatch-datasource:debug
+      GF_LOG_FILTERS: plugin.ucloud-cloudwatch-monitor:debug
       GF_LOG_LEVEL: debug
       GF_DATAPROXY_LOGGING: 1
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ucloud-cloudwatch-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ucloud-cloudwatch-monitor

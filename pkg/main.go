@@ -12,7 +12,7 @@ import (
 // 插件入口
 func main() {
 	if err := datasource.Manage(
-		"ucloud-cloudwatch-datasource",
+		"ucloud-cloudwatch-monitor",
 		plugin.NewDatasource,
 		datasource.ManageOpts{},
 	); err != nil {

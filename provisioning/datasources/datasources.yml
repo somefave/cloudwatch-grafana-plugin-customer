@@ -2,7 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: 'UCloud-CloudWatch-Monitor'
-    type: 'ucloud-cloudwatch-datasource'
+    type: 'ucloud-cloudwatch-monitor'
     access: proxy
     isDefault: false
     orgId: 1
