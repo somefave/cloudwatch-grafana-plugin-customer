@@ -1,6 +1,6 @@
-stages:
-  - build
-  - release
+# stages:
+#   - build
+#   - release
 
 # 缓存 node_modules
 cache:
