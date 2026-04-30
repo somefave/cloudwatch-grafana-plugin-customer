@@ -54,19 +54,22 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     [query, onChange]
   );
 
-  // 必填字段填满后自动触发查询
+  // 必填字段填满后自动触发查询；tags / calcMethod 变化也重新查询
+  // 把数组/对象序列化为字符串，避免引用变化导致无限请求
+  const resourceKey = resourceIds.join(',');
+  const tagsKey = JSON.stringify(tags);
   useEffect(() => {
     const allFilled =
       projectId &&
       productKey &&
       region &&
       metric &&
-      resourceIds &&
-      resourceIds.length > 0;
+      resourceKey.length > 0;
     if (allFilled) {
       onRunQuery();
     }
-  }, [projectId, productKey, region, metric, resourceIds, onRunQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, productKey, region, metric, resourceKey, tagsKey, calcMethod]);
 
   // 初次加载：项目、产品、聚合方式
   useEffect(() => {
