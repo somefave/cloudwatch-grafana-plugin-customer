@@ -14,6 +14,7 @@ ci/
 
 # 发布包（npm run release 输出）
 ucloud-cloudwatch-monitor-*.zip
+ucloud-cloudwatch-monitor-*/
 
 # Go 构建缓存
 *.test

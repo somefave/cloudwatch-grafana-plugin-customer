@@ -16,6 +16,8 @@ import (
 type Option struct {
 	Text  string `json:"text"`
 	Value string `json:"value"`
+	// GlobalService 仅产品列表使用：1 表示全局产品（前端隐藏地域选择器）
+	GlobalService int `json:"globalService,omitempty"`
 }
 
 // CallResource 将前端 /projects、/regions、/products、/metrics、/resources、/aggregations
@@ -129,7 +131,12 @@ func (d *Datasource) listProducts() ([]Option, error) {
 		default:
 			label = firstNonEmpty(asString(it["ProductName"]), key)
 		}
-		out = append(out, Option{Text: label, Value: key})
+		// 全局产品标记：值为 1 时前端隐藏地域选择器
+		gs := 0
+		if v, ok := it["GlobalService"].(float64); ok {
+			gs = int(v)
+		}
+		out = append(out, Option{Text: label, Value: key, GlobalService: gs})
 	}
 	return out, nil
 }

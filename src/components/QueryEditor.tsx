@@ -14,7 +14,7 @@ import { MAX_RESOURCE_SELECTIONS } from '../config/enums';
 import { TagsKVEditor } from './TagsKVEditor';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
-type Option = { text: string; value: string };
+type Option = { text: string; value: string; globalService?: number };
 
 // 把后端 Option[] 转成 Grafana SelectableValue 并前置 Dashboard 模板变量
 function mergeVarOptions(apiList: Option[]): Array<SelectableValue<string>> {
@@ -54,6 +54,12 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     [query, onChange]
   );
 
+  // 当前选中产品是否为全局产品（GlobalService === 1 → 隐藏地域）
+  const isGlobalProduct = useMemo(
+    () => productOptions.find((p) => p.value === productKey)?.globalService === 1,
+    [productOptions, productKey]
+  );
+
   // 必填字段填满后自动触发查询；tags / calcMethod 变化也重新查询
   // 把数组/对象序列化为字符串，避免引用变化导致无限请求
   const resourceKey = resourceIds.join(',');
@@ -62,14 +68,14 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     const allFilled =
       projectId &&
       productKey &&
-      region &&
+      (isGlobalProduct || region) &&
       metric &&
       resourceKey.length > 0;
     if (allFilled) {
       onRunQuery();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, productKey, region, metric, resourceKey, tagsKey, calcMethod]);
+  }, [projectId, productKey, region, metric, resourceKey, tagsKey, calcMethod, isGlobalProduct]);
 
   // 初次加载：项目、产品、聚合方式
   useEffect(() => {
@@ -109,15 +115,16 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       .catch(() => setMetricOptions([]));
   }, [productKey, datasource]);
 
-  // 产品/地域/项目变化 → 拉资源
+  // 项目 + 产品 + 地域（全局产品除外）都填了才拉资源
+  const canLoadResources = Boolean(projectId && productKey && (isGlobalProduct || region));
+
   useEffect(() => {
-    if (!productKey) {
+    if (!canLoadResources) {
       setResourceOptions([]);
       return;
     }
     const params = new URLSearchParams();
-    params.set('productKey', productKey);
-    // 替换模板变量（$region / $project）
+    params.set('productKey', productKey!);
     const srv = getTemplateSrv();
     if (region) {
       params.set('region', srv.replace(region));
@@ -129,7 +136,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       .getResource<Option[]>(`/resources?${params.toString()}`)
       .then(setResourceOptions)
       .catch(() => setResourceOptions([]));
-  }, [productKey, region, projectId, datasource]);
+  }, [canLoadResources, productKey, region, projectId, datasource]);
 
   const projectSelectOptions = useMemo(() => mergeVarOptions(projectOptions), [projectOptions]);
   const regionSelectOptions = useMemo(() => mergeVarOptions(regionOptions), [regionOptions]);
@@ -193,17 +200,19 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         />
       </InlineField>
 
-      <InlineField label="地域" labelWidth={14} required tooltip="全局产品无需选择地域">
-        <Select
-          width={40}
-          placeholder={productKey ? '请选择地域' : '请先选择产品类型'}
-          value={region}
-          options={regionSelectOptions}
-          onChange={(e) => onKeyChange('region', e?.value ?? '')}
-          isClearable
-          disabled={!productKey}
-        />
-      </InlineField>
+      {!isGlobalProduct && (
+        <InlineField label="地域" labelWidth={14} required tooltip="全局产品无需选择地域">
+          <Select
+            width={40}
+            placeholder={productKey ? '请选择地域' : '请先选择产品类型'}
+            value={region}
+            options={regionSelectOptions}
+            onChange={(e) => onKeyChange('region', e?.value ?? '')}
+            isClearable
+            disabled={!productKey}
+          />
+        </InlineField>
+      )}
 
       <InlineField label="指标" labelWidth={14} required>
         <Select
@@ -225,11 +234,11 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       >
         <MultiSelect
           width={60}
-          placeholder={productKey ? '请选择资源' : '请选择产品类型和地域'}
+          placeholder={canLoadResources ? '请选择资源' : '请先选择项目、产品类型和地域'}
           value={resourceIds}
           options={resourceSelectOptions}
           onChange={onResourceChange}
-          disabled={!productKey}
+          disabled={!canLoadResources}
         />
       </InlineField>
 
