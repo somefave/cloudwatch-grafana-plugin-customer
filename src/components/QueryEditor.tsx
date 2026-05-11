@@ -60,20 +60,11 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     [productOptions, productKey]
   );
 
-  // 必填字段填满后自动触发查询；tags / calcMethod 变化也重新查询
-  // 把数组/对象序列化为字符串，避免引用变化导致无限请求
+  // 任意必填字段变化都触发查询；后端会在缺字段时返回 Notice 警告，让 Panel 显示
   const resourceKey = resourceIds.join(',');
   const tagsKey = JSON.stringify(tags);
   useEffect(() => {
-    const allFilled =
-      projectId &&
-      productKey &&
-      (isGlobalProduct || region) &&
-      metric &&
-      resourceKey.length > 0;
-    if (allFilled) {
-      onRunQuery();
-    }
+    onRunQuery();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, productKey, region, metric, resourceKey, tagsKey, calcMethod, isGlobalProduct]);
 
@@ -187,10 +178,13 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           value={productKey}
           options={productSelectOptions}
           onChange={(e) => {
-            // 切换产品时清空地域/指标/资源
+            const nextProduct = productOptions.find((p) => p.value === e?.value);
+            const nextIsGlobal = nextProduct?.globalService === 1;
+            // 切换产品时清空地域/指标/资源，并记录是否全局产品（用于后端校验）
             onChange({
               ...query,
               productKey: e?.value,
+              isGlobalProduct: nextIsGlobal,
               region: undefined,
               metric: undefined,
               resourceIds: [],

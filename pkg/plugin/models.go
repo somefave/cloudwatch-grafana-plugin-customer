@@ -8,13 +8,14 @@ type DatasourceSettings struct {
 
 // QueryModel 与前端 src/types.ts 的 MyQuery 对齐
 type QueryModel struct {
-	ProjectID   string    `json:"projectId"`
-	ProductKey  string    `json:"productKey"`
-	Region      string    `json:"region"`
-	Metric      string    `json:"metric"`
-	ResourceIDs []string  `json:"resourceIds"`
-	Tags        []TagPair `json:"tags"`
-	CalcMethod  string    `json:"calcMethod"`
+	ProjectID       string    `json:"projectId"`
+	ProductKey      string    `json:"productKey"`
+	IsGlobalProduct bool      `json:"isGlobalProduct"`
+	Region          string    `json:"region"`
+	Metric          string    `json:"metric"`
+	ResourceIDs     []string  `json:"resourceIds"`
+	Tags            []TagPair `json:"tags"`
+	CalcMethod      string    `json:"calcMethod"`
 }
 
 type TagPair struct {

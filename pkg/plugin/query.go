@@ -26,9 +26,14 @@ func (d *Datasource) handleQuery(q backend.DataQuery) backend.DataResponse {
 	if err := json.Unmarshal(q.JSON, &model); err != nil {
 		return backend.ErrDataResponse(backend.StatusBadRequest, "解析查询参数失败: "+err.Error())
 	}
-	// 必填校验
-	if model.ProductKey == "" || model.Metric == "" || model.Region == "" || model.ProjectID == "" {
-		return backend.DataResponse{}
+
+	// 必填校验：缺字段时不发请求，但返回带 Notice 的空 frame，让 Panel 能看到警告
+	missing := missingRequiredFields(model)
+	if len(missing) > 0 {
+		return responseWithNotice(
+			fmt.Sprintf("请补充必填项：%s", strings.Join(missing, "、")),
+			data.NoticeSeverityWarning,
+		)
 	}
 
 	tagsMap, tagsErr := buildTags(model)
@@ -284,4 +289,35 @@ func toStringSlice(raw interface{}) []string {
 		out = append(out, asString(v))
 	}
 	return out
+}
+
+// missingRequiredFields 返回缺失的必填字段名（用于 Panel 警告提示）
+// 全局产品（IsGlobalProduct=true）跳过 Region 校验
+func missingRequiredFields(model QueryModel) []string {
+	var missing []string
+	if model.ProjectID == "" {
+		missing = append(missing, "项目")
+	}
+	if model.ProductKey == "" {
+		missing = append(missing, "产品类型")
+	}
+	if !model.IsGlobalProduct && model.Region == "" {
+		missing = append(missing, "地域")
+	}
+	if model.Metric == "" {
+		missing = append(missing, "指标")
+	}
+	if len(model.ResourceIDs) == 0 {
+		missing = append(missing, "资源对象")
+	}
+	return missing
+}
+
+// responseWithNotice 构造一个仅含 Notice 的空响应，让 Panel 能展示警告
+func responseWithNotice(text string, severity data.NoticeSeverity) backend.DataResponse {
+	frame := data.NewFrame("notice")
+	frame.Meta = &data.FrameMeta{
+		Notices: []data.Notice{{Severity: severity, Text: text}},
+	}
+	return backend.DataResponse{Frames: data.Frames{frame}}
 }

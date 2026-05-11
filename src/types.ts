@@ -13,6 +13,8 @@ export interface MyQuery extends DataQuery {
   projectId?: string;
   // 产品类型
   productKey?: string;
+  // 是否全局产品（前端从 ListMonitorProduct 的 GlobalService 字段推导，传给后端用于跳过 region 必填校验）
+  isGlobalProduct?: boolean;
   // 地域（支持 $region 变量）
   region?: string;
   // 指标

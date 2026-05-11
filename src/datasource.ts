@@ -23,15 +23,10 @@ export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptio
     return DEFAULT_QUERY;
   }
 
-  filterQuery(query: MyQuery): boolean {
-    // PRD/API 必填：项目、产品、地域、指标、资源对象
-    return Boolean(
-      query.projectId &&
-        query.productKey &&
-        query.region &&
-        query.metric &&
-        (query.resourceIds?.length ?? 0) > 0
-    );
+  filterQuery(_query: MyQuery): boolean {
+    // 始终允许发送查询，由后端统一返回必填项缺失的 Notice，
+    // 让 Panel 能看到警告而非空白
+    return true;
   }
 
   applyTemplateVariables(query: MyQuery, scopedVars: ScopedVars): MyQuery {
