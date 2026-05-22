@@ -28,7 +28,7 @@
 
 ### 3.1 下载插件压缩包
 
-> 📦 下载地址：**TODO 待补充**
+> 📦 下载地址：[点此下载](https://github.com/ucloud/cloudwatch-grafana-plugin-customer/releases/download/1.0.3/ucloud-cloudwatch-monitor-1.0.3.zip)
 
 下载 `ucloud-cloudwatch-monitor-<version>.zip` 到本地。
 
