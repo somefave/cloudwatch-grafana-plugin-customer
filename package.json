@@ -1,12 +1,13 @@
 {
   "name": "ucloud-cloudwatch-monitor",
-  "version": "1.0.3",
+  "version": "1.0.0",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "build:backend": "mage -v build:linuxARM64",
     "build:backend:all": "mage -v buildAll",
     "build:all": "npm run build && npm run build:backend",
-    "release": "rm -rf dist node_modules/.cache && npm run build && mage -v buildAll && cd dist && zip -r ../ucloud-cloudwatch-monitor-$npm_package_version.zip . -x '*.map' && cd .. && echo '\\n✅ Done: ucloud-cloudwatch-monitor-'$npm_package_version'.zip'",
+    "release": "rm -rf dist node_modules/.cache && npm run build && mage -v buildAll && node scripts/pack.js",
+    "release:beta": "rm -rf dist node_modules/.cache && npm run build && mage -v buildAll && node scripts/pack.js --beta",
     "dev": "npm run build:backend && webpack -w -c ./.config/webpack/webpack.config.ts --env development",
     "test": "jest --watch --onlyChanged",
     "test:ci": "jest --passWithNoTests --maxWorkers 4",

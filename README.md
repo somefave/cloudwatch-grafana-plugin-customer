@@ -1,170 +1,165 @@
-# UCloud CloudWatch Grafana 插件
+# UCloud CloudWatch Grafana 数据源插件 — 用户使用文档
 
-为 Grafana 提供 UCloud CloudWatch 监控数据查询能力。安装后可在 Grafana 中直接查询 UCloud 各产品的监控指标，并支持多维度过滤、模板变量、自动联动查询。
-
-> 开发者文档请见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+> 版本：1.0.0 | 适用 Grafana ≥ 10.4.0
 
 ---
 
-## 一、特性
+## 一、安装说明
 
-- **多产品支持**：云主机、云数据库、对象存储等所有 UCloud 监控产品
-- **多维度筛选**：项目、地域、资源对象、数据维度（KV 标签）多重过滤
-- **模板变量**：JSON 形式定义，支持变量间联动（如资源跟随地域刷新）
-- **自动查询**：必填项填齐后自动出图，无需手动点按钮
-- **部分失败可视化**：多资源查询中部分失败时给出明确提示
-- **安全**：PrivateKey 加密存储于服务端，**不会出现在浏览器请求中**
+### 1.1 环境要求
 
----
+| 项目 | 要求 |
+|------|------|
+| Grafana 版本 | ≥ 10.4.0（推荐 11.x / 12.x） |
+| 操作系统 | Linux（amd64 / arm64）、macOS（amd64 / arm64）、Windows（amd64） |
+| 网络 | Grafana 服务器可访问 UCloud OpenAPI（默认 `https://api.ucloud.cn`） |
+| API 密钥 | 已在 [UCloud 控制台 → UAPI 密钥管理](https://console.ucloud.cn/uapi/apikey) 获取 PublicKey 和 PrivateKey |
 
-## 二、环境要求
+### 1.2 安装步骤
 
-- Grafana **≥ 10.4.0**（推荐 11.x / 12.x）
-- 已配置 [UCloud API 密钥](https://console.ucloud.cn/uapi/apikey)（PublicKey + PrivateKey）
-
----
-
-## 三、安装
-
-### 3.1 下载插件压缩包
-
-> 📦 下载地址：[点此下载](https://github.com/ucloud/cloudwatch-grafana-plugin-customer/releases/download/1.0.3/ucloud-cloudwatch-monitor-1.0.3.zip)
-
-下载 `ucloud-cloudwatch-monitor-<version>.zip` 到本地。
-
-### 3.2 解压到 Grafana 插件目录
+#### 步骤一：解压插件到 Grafana 插件目录
 
 ```bash
-unzip ucloud-cloudwatch-monitor-<version>.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
+unzip ucloud-cloudwatch-monitor-1.0.0.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
+```
+
+> **插件目录说明：**
+> - 二进制安装：默认为 `/var/lib/grafana/plugins`
+> - Docker 部署：容器内 `/var/lib/grafana/plugins`（需通过 volume 挂载）
+> - 自定义路径：查看 `grafana.ini` 中 `[paths] plugins=` 配置
+
+#### 步骤二：赋予后端二进制可执行权限
+
+```bash
 chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-monitor/gpx_ucloud_cloudwatch_*
 ```
 
-> Grafana 默认插件目录路径请按你的环境调整：
-> - 二进制部署：`/var/lib/grafana/plugins`
-> - Docker：`/var/lib/grafana/plugins`（容器内，需 volume 挂载）
-> - 自定义：查看 `grafana.ini` 的 `[paths] plugins=` 配置
+#### 步骤三：允许加载未签名插件
 
-### 3.3 允许加载未签名插件
-
-编辑 `/etc/grafana/grafana.ini`（或对应路径的配置文件）：
+编辑 Grafana 配置文件（`/etc/grafana/grafana.ini`）：
 
 ```ini
 [plugins]
 allow_loading_unsigned_plugins = ucloud-cloudwatch-monitor
 ```
 
-或通过环境变量（**推荐用于 Docker**）：
+**Docker 部署**可通过环境变量设置：
 
 ```bash
 GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ucloud-cloudwatch-monitor
 ```
 
-### 3.4 重启 Grafana
+#### 步骤四：重启 Grafana
 
 ```bash
-# systemd
+# systemd 方式
 systemctl restart grafana-server
 
-# docker
+# Docker 方式
 docker restart <grafana-container>
 ```
 
-### 3.5 验证插件加载
+#### 步骤五：验证插件加载成功
 
 ```bash
-# systemd
+# systemd 方式
 journalctl -u grafana-server -f | grep ucloud
 
-# docker
+# Docker 方式
 docker logs <grafana-container> 2>&1 | grep ucloud
 ```
 
-应出现 `Plugin registered` 与 `Successfully started backend plugin process`。
+看到 `Plugin registered` 与 `Successfully started backend plugin process` 即表示安装成功。
+
+### 1.3 版本升级
+
+```bash
+systemctl stop grafana-server
+
+rm -rf /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
+unzip ucloud-cloudwatch-monitor-<新版本>.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
+chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-monitor/gpx_ucloud_cloudwatch_*
+
+systemctl start grafana-server
+```
+
+> - 升级**不影响已有 Dashboard**，数据源配置、Panel 查询、模板变量全部保留。
+> - 升级后请在浏览器**强制刷新**（`Ctrl + Shift + F5` / `Cmd + Shift + R`）以加载新版前端资源。
 
 ---
 
-## 四、配置数据源
+## 二、使用说明
 
-1. Grafana 左侧菜单 → **Connections** → **Add new connection**
+### 2.1 配置数据源
+
+1. 进入 Grafana 左侧菜单 → **Connections** → **Add new connection**
 2. 搜索 `UCloud-CloudWatch-Monitor`，点击 **Add new data source**
-3. 填写配置：
+3. 填写以下配置：
 
 | 字段 | 说明 |
-|---|---|
-| **PublicKey** | UCloud API 公钥（[控制台 → UAPI 密钥管理](https://console.ucloud.cn/uapi/apikey)） |
-| **PrivateKey** | UCloud API 私钥（加密存储于服务端，浏览器看不到） |
-| **Base URL** | UCloud OpenAPI 入口地址，默认 `https://api.ucloud.cn`，专有云请填实际地址 |
+|------|------|
+| **PublicKey** | UCloud API 公钥 |
+| **PrivateKey** | UCloud API 私钥（加密存储于服务端，不会出现在浏览器请求中） |
+| **Base URL** | UCloud OpenAPI 入口地址，默认 `https://api.ucloud.cn`；专有云环境请填写实际地址 |
 
-4. 点 **Save & Test**
+4. 点击 **Save & Test** 验证连通性：
 
-| 反馈 | 含义 |
-|---|---|
-| ✅ `Data source is working` | 配置成功 |
-| ❌ `Invalid Credentials: ...` | PublicKey / PrivateKey 错误 |
-| ❌ `Permission Denied: ...` | 密钥有效但账号无权限 |
-| ❌ `Network Error: ...` | 网络不通（检查 Base URL 或防火墙） |
+| 反馈信息 | 含义 |
+|----------|------|
+| ✅ Data source is working | 配置成功 |
+| ❌ Invalid Credentials | PublicKey 或 PrivateKey 错误 |
+| ❌ Permission Denied | 密钥有效但账号权限不足 |
+| ❌ Network Error | 网络不通，请检查 Base URL 或防火墙规则 |
 
----
+### 2.2 查询监控数据（Query 面板）
 
-## 五、Query 面板使用
-
-### 5.1 字段说明
+在 Dashboard 中添加或编辑 Panel，选择 UCloud-CloudWatch-Monitor 数据源，按以下字段配置查询：
 
 | 字段 | 必填 | 说明 |
-|---|---|---|
-| **项目** | ✅ | 单选；支持 `$project` 模板变量 |
-| **产品类型** | ✅ | 单选，可搜索（如 UHost / UDB / UFS 等） |
-| **地域** | ✅ | 单选；支持 `$region` 模板变量；**全局产品自动隐藏** |
-| **指标** | ✅ | 单选，可搜索；按产品自动过滤 |
-| **资源对象** | ✅ | 多选，最多 20 个；需先选好项目、产品、地域 |
-| **数据维度** | 否 | KV 列表（key + 多 value 逗号分隔），用于过滤更细维度 |
-| **聚合方式** | 否 | 原始值/最大值/最小值/平均值/求和值；默认为原始值 |
+|------|------|------|
+| **项目** | ✅ | 下拉单选，展示当前账号有权限的项目列表；支持模板变量 |
+| **产品类型** | ✅ | 下拉单选，支持搜索（如 UHost、UDB、UFS 等） |
+| **地域** | ✅ | 下拉单选；全局产品（如 UCDN）自动隐藏此字段；支持模板变量 |
+| **指标** | ✅ | 下拉单选，支持搜索；根据所选产品类型自动过滤指标列表 |
+| **资源对象** | ✅ | 下拉多选，最多选择 **20** 个资源；需先选好项目、产品类型和地域 |
+| **数据维度** | 否 | Key-Value 键值对列表，用于更细粒度的数据过滤；Value 支持多值逗号分隔 |
+| **聚合方式** | 否 | 原始值（默认）、最大值、最小值、平均值、求和值 |
 
-### 5.2 自动查询
+**自动查询：** 填齐所有必填项后自动出图，修改任意字段后自动重新查询，无需手动触发。
 
-填齐所有必填项后**自动出图**，无需手动点按钮。修改任意字段后会自动重新查询。
+**数据周期：** 后端根据 Grafana 时间范围自动选择合适的数据粒度：
 
-### 5.3 必填项警告
-
-若必填项未填齐，Panel 上会显示警告提示，告知具体缺失字段（如"请补充必填项：项目、地域"），便于在 Dashboard 视图直接看出问题。
-
-### 5.4 数据周期（Period）
-
-后端按 Grafana 时间范围自动选择合适周期：
-
-| 时间范围 | Period |
-|---|---|
-| ≤ 1 小时 | 60s |
-| 1 小时 - 24 小时 | 300s |
-| 1 天 - 30 天 | 1 小时 |
+| 时间范围 | 数据周期 |
+|----------|----------|
+| ≤ 1 小时 | 60 秒 |
+| 1 小时 ~ 24 小时 | 5分钟 |
+| 1 天 ~ 30 天 | 1 小时 |
 | > 30 天 | 1 天 |
 
----
+### 2.3 模板变量
 
-## 六、模板变量
+模板变量可以让一个 Dashboard 适配多个项目/地域/资源组合，避免为每种场景重复创建面板。
 
-变量让一个 Dashboard 适配多个项目/地域/资源，避免重复配置。
+#### 创建方式
 
-### 6.1 创建变量
-
-Dashboard → **Settings** → **Variables** → **New variable**
-- **Type**：`Query`
+进入 Dashboard → **Settings** → **Variables** → **New variable**：
+- **Type**：选择 `Query`
 - **Data source**：选择本插件实例
-- **Query**：手写 JSON 配置（参考下方示例）
+- **Query**：填写 JSON 配置
 
-### 6.2 配置示例
+#### 配置示例
 
-**项目变量**
+**项目变量（`$project`）：**
 ```json
 {"type": "project"}
 ```
 
-**地域变量**
+**地域变量（`$region`）：**
 ```json
-{"type": "region"}
+{"type": "region", "params": {"product": "uhost"}}
 ```
 
-**资源变量（依赖其他变量实现联动）**
+**资源变量（`$resource`），支持联动：**
 ```json
 {
   "type": "resource",
@@ -176,79 +171,62 @@ Dashboard → **Settings** → **Variables** → **New variable**
 }
 ```
 
-> 切换顶部 `$region` 下拉时，`$resource` 候选列表自动刷新（联动效果）。
+#### 联动效果
 
-### 6.3 在 Query 面板中使用
+当顶部的 `$region` 或 `$project` 下拉切换时，`$resource` 的候选列表会自动刷新，Panel 也会随之重新查询出图。
 
-```
-项目：$project
-产品：uhost
-地域：$region
-资源：$resource    （Multi-value 多选时自动展开为多个资源 ID）
-```
+#### 在 Query 中引用变量
 
----
+在 Query 面板的下拉列表中，模板变量会出现在选项顶部（如 `$project`、`$region`），直接选择即可。资源对象字段支持 Multi-value 多选变量，自动展开为多个资源 ID。
 
-## 七、异常处理
+### 2.4 异常处理说明
 
-| 场景 | 表现 |
-|---|---|
-| 查询完全失败 | Panel 左上角红色图标 + 错误文案 |
-| 部分资源失败 | 成功资源正常出图 + Panel 显示警告（标注哪些资源不存在/无权限） |
-| 无数据 | Grafana 显示 "No Data" |
-| 必填项缺失 | Panel 显示警告，告知缺哪些字段 |
+| 场景 | Panel 表现 |
+|------|------------|
+| 必填项未填齐 | 显示警告提示，告知具体缺失的字段（如"请补充必填项：项目、地域"） |
+| 查询完全失败 | 面板左上角显示红色错误图标及错误文案 |
+| 部分资源失败 | 成功资源正常出图，同时显示黄色警告（标注哪些资源失败及原因） |
+| 无数据 | 图表区域显示 "No Data" |
 
 ---
 
-## 八、版本升级
+## 三、常见问题（FAQ）
 
-```bash
-systemctl stop grafana-server
+**Q：出现 "Plugin unavailable" 错误？**
 
-# 删除旧目录后重新解压（保持目录名不变）
-rm -rf /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
-unzip ucloud-cloudwatch-monitor-<新版本>.zip -d /var/lib/grafana/plugins/ucloud-cloudwatch-monitor
-chmod +x /var/lib/grafana/plugins/ucloud-cloudwatch-monitor/gpx_ucloud_cloudwatch_*
-
-systemctl start grafana-server
-```
-
-**升级不影响已有 Dashboard**：数据源配置、Panel 查询、模板变量全部保留。
-
-> 升级后浏览器请**强制刷新**（`Cmd + Shift + R` / `Ctrl + Shift + F5`），让浏览器加载新版 module.js。
-
----
-
-## 九、常见问题（FAQ）
-
-**Q：Plugin unavailable 错误？**
-1. 后端二进制架构与服务器/容器不匹配。查看架构：`uname -m`（`x86_64` 对应 `linux_amd64`，`aarch64` 对应 `linux_arm64`）
-2. 没配置 `allow_loading_unsigned_plugins`
-3. 二进制没有可执行权限：`chmod +x gpx_ucloud_cloudwatch_*`
+请依次检查：
+1. 后端二进制架构是否与服务器匹配（`uname -m`：`x86_64` → `linux_amd64`，`aarch64` → `linux_arm64`）
+2. 是否已配置 `allow_loading_unsigned_plugins = ucloud-cloudwatch-monitor`
+3. 二进制文件是否有可执行权限（`chmod +x gpx_ucloud_cloudwatch_*`）
 
 **Q：下拉列表为空？**
-- 检查 PublicKey/PrivateKey 是否正确，账号是否有对应产品的查询权限
-- 切换项目/地域后下拉会自动刷新
 
-**Q：资源多选最多 20 个的限制能否改？**
-- 这是 PRD 要求的上限，避免单次查询过慢
+- 检查 PublicKey / PrivateKey 是否正确
+- 确认账号是否有对应产品/项目的查询权限
+- 切换项目或产品类型后，下级下拉列表会自动刷新
 
-**Q：升级后 Dashboard 会丢失吗？**
-- 不会。只要插件 ID 不变（`ucloud-cloudwatch-monitor`），所有 Dashboard 配置都保留
+**Q：资源对象最多选 20 个能否调整？**
 
-**Q：私钥安全吗？**
-- 私钥使用 Grafana 的 secureJsonData 机制加密存储于服务端
-- 所有 UCloud API 请求由后端 Go 进程发起，**私钥不会出现在浏览器请求中**
-- 浏览器 DevTools 抓包可见的只有 Grafana 内部代理调用，不含敏感信息
+不可调整。这是为避免单次查询数据量过大导致响应缓慢而设置的上限。如需监控更多资源，建议拆分为多个 Panel。
 
-**Q：变量定义里依赖的变量没被替换怎么办？**
-- 检查变量引用语法：`$varname` 或 `${varname}`（推荐后者）
-- 确保被引用的变量在 Dashboard 设置中已经定义
+**Q：升级插件后 Dashboard 会丢失吗？**
+
+不会。只要插件 ID 不变（`ucloud-cloudwatch-monitor`），所有已有的数据源配置和 Dashboard 均会保留。
+
+**Q：私钥存储是否安全？**
+
+安全。私钥使用 Grafana 的 secureJsonData 机制加密存储于服务端，所有 UCloud API 请求由后端进程发起，私钥不会出现在浏览器网络请求中。
+
+**Q：模板变量中引用的变量没有被替换？**
+
+- 确认变量引用语法为 `${varname}`（推荐）或 `$varname`
+- 确认被引用的变量已在 Dashboard Settings → Variables 中定义
 
 ---
 
-## 十、参考资料
+## 四、参考资料
 
 - [UCloud CloudWatch 产品文档](https://docs.ucloud.cn/cloudwatch/README)
 - [UCloud OpenAPI 文档](https://docs.ucloud.cn/api/)
+- [UCloud API 密钥管理](https://console.ucloud.cn/uapi/apikey)
 - [Grafana 模板变量文档](https://grafana.com/docs/grafana/latest/dashboards/variables/)
