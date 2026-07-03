@@ -1,6 +1,6 @@
 # UCloud CloudWatch Grafana 数据源插件 — 用户使用文档
 
-> 版本：1.0.0 | 适用 Grafana ≥ 10.4.0
+> 版本：1.0.1 | 适用 Grafana ≥ 10.4.0
 
 ---
 
@@ -100,6 +100,7 @@ systemctl start grafana-server
 |------|------|
 | **PublicKey** | UCloud API 公钥 |
 | **PrivateKey** | UCloud API 私钥（加密存储于服务端，不会出现在浏览器请求中） |
+| **channel-key** | 专属云渠道 ID，普通账号留空；专属云客户请填写对应渠道 ID，插件会在每次 API 请求中附加该值 |
 | **Base URL** | UCloud OpenAPI 入口地址，默认 `https://api.ucloud.cn`；专有云环境请填写实际地址 |
 
 4. 点击 **Save & Test** 验证连通性：
