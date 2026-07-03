@@ -61,6 +61,7 @@ export interface DataSourceResponse {
 export interface MyDataSourceOptions extends DataSourceJsonData {
   publicKey?: string;
   baseUrl?: string;
+  channelKey?: string;
 }
 
 /**

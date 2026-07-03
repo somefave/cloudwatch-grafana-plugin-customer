@@ -25,6 +25,13 @@ export function ConfigEditor(props: Props) {
     });
   };
 
+  const onChannelKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onOptionsChange({
+      ...options,
+      jsonData: { ...jsonData, channelKey: event.target.value },
+    });
+  };
+
   const onPrivateKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,
@@ -53,7 +60,7 @@ export function ConfigEditor(props: Props) {
     <>
       <InlineField
         label="PublicKey"
-        labelWidth={14}
+        labelWidth={16}
         interactive
         tooltip="UCloud API 公钥，可在 UAPI 密钥管理页面获取"
       >
@@ -68,7 +75,7 @@ export function ConfigEditor(props: Props) {
 
       <InlineField
         label="PrivateKey"
-        labelWidth={14}
+        labelWidth={16}
         interactive
         tooltip="UCloud API 私钥，加密存储于服务端，不会出现在前端请求中"
       >
@@ -84,8 +91,23 @@ export function ConfigEditor(props: Props) {
       </InlineField>
 
       <InlineField
+        label="channel-key"
+        labelWidth={16}
+        interactive
+        tooltip="如果您的账号属于专属云渠道则需要填写对应渠道ID"
+      >
+        <Input
+          id="config-editor-channel-key"
+          onChange={onChannelKeyChange}
+          value={jsonData.channelKey || ''}
+          width={60}
+          placeholder="请输入 channel-key"
+        />
+      </InlineField>
+
+      <InlineField
         label="Base URL"
-        labelWidth={14}
+        labelWidth={16}
         interactive
         tooltip="UCloud OpenAPI 入口地址，默认 https://api.ucloud.cn"
       >

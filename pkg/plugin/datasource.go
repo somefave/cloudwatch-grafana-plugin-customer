@@ -33,7 +33,7 @@ func NewDatasource(_ context.Context, s backend.DataSourceInstanceSettings) (ins
 	}
 	privateKey := s.DecryptedSecureJSONData["privateKey"]
 
-	cli := NewUCloudClient(settings.PublicKey, privateKey, settings.BaseURL)
+	cli := NewUCloudClient(settings.PublicKey, privateKey, settings.BaseURL, settings.ChannelKey)
 	return &Datasource{settings: settings, uclient: cli}, nil
 }
 
@@ -48,7 +48,7 @@ func (d *Datasource) CheckHealth(_ context.Context, _ *backend.CheckHealthReques
 		}, nil
 	}
 
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action": "GetRegion",
 	})
 	if err != nil {

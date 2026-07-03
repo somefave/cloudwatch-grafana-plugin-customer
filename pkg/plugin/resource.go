@@ -74,7 +74,7 @@ func (d *Datasource) CallResource(_ context.Context, req *backend.CallResourceRe
 // --- 具体资源拉取 ---
 
 func (d *Datasource) listProjects() ([]Option, error) {
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action": "GetProjectList",
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (d *Datasource) listProjects() ([]Option, error) {
 
 // 产品类型：ListMonitorProduct（无请求参数；响应 Data 直接是数组）
 func (d *Datasource) listProducts() ([]Option, error) {
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action": "ListMonitorProduct",
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func (d *Datasource) listProducts() ([]Option, error) {
 
 // 地域：ListRegions（无请求参数）
 func (d *Datasource) listRegions(_ string) ([]Option, error) {
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action": "ListRegions",
 	})
 	if err != nil {
@@ -182,7 +182,7 @@ func (d *Datasource) listMetrics(productKey string) ([]Option, error) {
 	if productKey == "" {
 		return []Option{}, nil
 	}
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action":     "GetProductMetrics",
 		"ProductKey": productKey,
 	})
@@ -231,7 +231,7 @@ func (d *Datasource) listResources(productKey, region, projectID string) ([]Opti
 	if productKey != "" {
 		payload["ProductKey"] = productKey
 	}
-	resp, err := d.uclient.Invoke(payload)
+	resp, _, err := d.uclient.Invoke(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func (d *Datasource) listResources(productKey, region, projectID string) ([]Opti
 }
 
 func (d *Datasource) listAggregations() ([]Option, error) {
-	resp, err := d.uclient.Invoke(map[string]interface{}{
+	resp, _, err := d.uclient.Invoke(map[string]interface{}{
 		"Action": "GetMetricDataAggregationMethod",
 	})
 	if err != nil {

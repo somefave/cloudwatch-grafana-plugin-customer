@@ -2,8 +2,9 @@ package plugin
 
 // 数据源 JSON 配置（明文）
 type DatasourceSettings struct {
-	PublicKey string `json:"publicKey"`
-	BaseURL   string `json:"baseUrl"`
+	PublicKey  string `json:"publicKey"`
+	BaseURL    string `json:"baseUrl"`
+	ChannelKey string `json:"channelKey"`
 }
 
 // QueryModel 与前端 src/types.ts 的 MyQuery 对齐
