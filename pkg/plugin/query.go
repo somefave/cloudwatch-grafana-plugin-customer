@@ -27,13 +27,13 @@ func (d *Datasource) handleQuery(q backend.DataQuery) backend.DataResponse {
 		return backend.ErrDataResponse(backend.StatusBadRequest, "解析查询参数失败: "+err.Error())
 	}
 
-	// 必填校验：缺字段时不发请求，但返回带 Notice 的空 frame，让 Panel 能看到警告
+	// 必填校验：缺字段时不发请求，返回 Error（触发标题旁图标）+ Notice（Panel 内详细文案）
 	missing := missingRequiredFields(model)
 	if len(missing) > 0 {
-		return responseWithNotice(
-			fmt.Sprintf("请补充必填项：%s", strings.Join(missing, "、")),
-			data.NoticeSeverityWarning,
-		)
+		msg := fmt.Sprintf("请补充必填项：%s", strings.Join(missing, "、"))
+		resp := responseWithNotice(msg, data.NoticeSeverityWarning)
+		resp.Error = fmt.Errorf("%s", msg)
+		return resp
 	}
 
 	tagsMap, tagsErr := buildTags(model)
@@ -99,7 +99,7 @@ func (d *Datasource) handleQuery(q backend.DataQuery) backend.DataResponse {
 		"calcMethod", calcMethod,
 	)
 
-	raw, err := d.uclient.Invoke(payload)
+	raw, traceID, err := d.uclient.Invoke(payload)
 	if err != nil {
 		return backend.DataResponse{Error: err}
 	}
@@ -107,7 +107,7 @@ func (d *Datasource) handleQuery(q backend.DataQuery) backend.DataResponse {
 		return backend.DataResponse{Error: err}
 	}
 
-	return buildDataResponse(model, raw)
+	return buildDataResponse(model, raw, traceID)
 }
 
 // pickPeriod 按 PRD/文档约定，根据时间范围（秒）选择合适的 Period
@@ -165,7 +165,7 @@ func buildTags(model QueryModel) (map[string][]string, error) {
 // 响应结构（QueryMetricDataSet）：
 //   Data.List[].Metric, Data.List[].Results[].ResourceId/ResourceName/TagMap/Values[]
 //   Data.InvalidResourceIds[]（部分失败的资源）
-func buildDataResponse(model QueryModel, raw map[string]interface{}) backend.DataResponse {
+func buildDataResponse(model QueryModel, raw map[string]interface{}, traceID string) backend.DataResponse {
 	var resp backend.DataResponse
 
 	dataMap, _ := raw["Data"].(map[string]interface{})
@@ -207,7 +207,6 @@ func buildDataResponse(model QueryModel, raw map[string]interface{}) backend.Dat
 	totalReq := len(model.ResourceIDs)
 	if totalReq > 0 {
 		success := len(successResourceIDs)
-		// 优先用 InvalidResourceIds（API 显式告诉我们哪些坏了）
 		var missing []string
 		if len(invalidResourceIDs) > 0 {
 			missing = invalidResourceIDs
@@ -239,6 +238,25 @@ func buildDataResponse(model QueryModel, raw map[string]interface{}) backend.Dat
 					first.Meta = &data.FrameMeta{}
 				}
 				first.Meta.Notices = append(first.Meta.Notices, notice)
+			}
+		}
+	}
+
+	// 把 traceId 写入第一个 Frame 的 Meta.Custom，测试同学可在 Inspect → Query 里查看
+	if traceID != "" {
+		if len(resp.Frames) == 0 {
+			frame := data.NewFrame("meta")
+			frame.Meta = &data.FrameMeta{Custom: map[string]string{"traceId": traceID}}
+			resp.Frames = append(resp.Frames, frame)
+		} else {
+			first := resp.Frames[0]
+			if first.Meta == nil {
+				first.Meta = &data.FrameMeta{}
+			}
+			if first.Meta.Custom == nil {
+				first.Meta.Custom = map[string]string{"traceId": traceID}
+			} else if m, ok := first.Meta.Custom.(map[string]string); ok {
+				m["traceId"] = traceID
 			}
 		}
 	}
