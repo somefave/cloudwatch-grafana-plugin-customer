@@ -5,13 +5,13 @@ import {
   InlineField,
   MultiSelect,
   Select,
-  Stack,
 } from '@grafana/ui';
 
 import { DataSource } from '../datasource';
 import { MyDataSourceOptions, MyQuery, TagPair } from '../types';
 import { MAX_RESOURCE_SELECTIONS } from '../config/enums';
 import { TagsKVEditor } from './TagsKVEditor';
+import { Stack } from './CompatStack';
 
 type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
 type Option = { text: string; value: string; globalService?: number };
